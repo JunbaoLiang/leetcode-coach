@@ -8,9 +8,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import SessionLocal, get_db
 from app.models import MockSession, Problem, User
-from app.routers.profile import get_current_user
 from app.routers.stats import weakness_profile
 from app.schemas import (
     MOCK_DURATION_SEC,
@@ -69,10 +69,11 @@ def _get_open_session(db: Session, session_id: int) -> MockSession:
 
 
 @router.post("/mock/start", response_model=MockStartOut)
-async def start_mock(body: MockStartIn, db: Session = Depends(get_db)) -> MockStartOut:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet")
+async def start_mock(
+    body: MockStartIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> MockStartOut:
     if body.problem_id is not None:
         problem = db.get(Problem, body.problem_id)
         if problem is None:
@@ -106,8 +107,13 @@ async def start_mock(body: MockStartIn, db: Session = Depends(get_db)) -> MockSt
 
 
 @router.post("/mock/message")
-def mock_message(body: MockMessageIn, db: Session = Depends(get_db)) -> StreamingResponse:
+def mock_message(
+    body: MockMessageIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> StreamingResponse:
     session = _get_open_session(db, body.session_id)
+    ensure_owner(session.user_id, current)
     user = db.get(User, session.user_id)
     problem = db.get(Problem, session.problem_id)
 
@@ -148,8 +154,13 @@ def _numbered_transcript(transcript: list[dict]) -> str:
 
 
 @router.post("/mock/finish", response_model=MockSessionOut)
-async def finish_mock(body: MockFinishIn, db: Session = Depends(get_db)) -> MockSessionOut:
+async def finish_mock(
+    body: MockFinishIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> MockSessionOut:
     session = _get_open_session(db, body.session_id)
+    ensure_owner(session.user_id, current)
     user = db.get(User, session.user_id)
     problem = db.get(Problem, session.problem_id)
 
@@ -205,10 +216,9 @@ def _session_out(session: MockSession, problem: Problem) -> MockSessionOut:
 
 
 @router.get("/mock", response_model=list[MockSessionSummary])
-def list_mock_sessions(db: Session = Depends(get_db)) -> list[MockSessionSummary]:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet")
+def list_mock_sessions(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> list[MockSessionSummary]:
     sessions = db.scalars(
         select(MockSession).where(MockSession.user_id == user.id).order_by(MockSession.id.desc())
     )
@@ -229,9 +239,14 @@ def list_mock_sessions(db: Session = Depends(get_db)) -> list[MockSessionSummary
 
 
 @router.get("/mock/{session_id}", response_model=MockSessionOut)
-def get_mock_session(session_id: int, db: Session = Depends(get_db)) -> MockSessionOut:
+def get_mock_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> MockSessionOut:
     session = db.get(MockSession, session_id)
     if session is None:
         raise HTTPException(404, "mock session not found")
+    ensure_owner(session.user_id, current)
     problem = db.get(Problem, session.problem_id)
     return _session_out(session, problem)

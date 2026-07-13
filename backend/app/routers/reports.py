@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import get_db
-from app.models import Attempt, Report
+from app.models import Attempt, Report, User
 from app.routers.plan import compute_streak
-from app.routers.profile import get_current_user
 from app.schemas import ReportOut, ReportSummary
 from app.services import llm
 from app.services.weakness import AttemptEvidence, aggregate_weaknesses
@@ -79,10 +79,9 @@ def build_week_metrics(db: Session, user_id: int, today: date) -> dict:
 
 
 @router.post("/reports/weekly", response_model=ReportOut)
-async def generate_weekly_report(db: Session = Depends(get_db)) -> Report:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet")
+async def generate_weekly_report(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> Report:
     today = date.today()
     metrics = build_week_metrics(db, user.id, today)
     if metrics["this_week"]["attempts"] == 0:
@@ -117,10 +116,9 @@ async def generate_weekly_report(db: Session = Depends(get_db)) -> Report:
 
 
 @router.get("/reports", response_model=list[ReportSummary])
-def list_reports(db: Session = Depends(get_db)) -> list[Report]:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet")
+def list_reports(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> list[Report]:
     return list(
         db.scalars(
             select(Report).where(Report.user_id == user.id).order_by(Report.id.desc())
@@ -129,8 +127,13 @@ def list_reports(db: Session = Depends(get_db)) -> list[Report]:
 
 
 @router.get("/reports/{report_id}", response_model=ReportOut)
-def get_report(report_id: int, db: Session = Depends(get_db)) -> Report:
+def get_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> Report:
     report = db.get(Report, report_id)
     if report is None:
         raise HTTPException(404, "report not found")
+    ensure_owner(report.user_id, current)
     return report

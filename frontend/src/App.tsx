@@ -15,6 +15,10 @@ function Shell({ profile, children }: { profile: Profile | null; children: React
     `px-2 py-1 text-sm transition-colors ${
       isActive ? 'text-vermilion font-medium' : 'text-ink-soft hover:text-ink'
     }`
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/'
+  }
   return (
     <div className="min-h-screen">
       <header className="border-b border-line bg-card/80 backdrop-blur">
@@ -22,6 +26,18 @@ function Shell({ profile, children }: { profile: Profile | null; children: React
           <Link to="/" className="font-display text-xl font-semibold">
             刷题<span className="text-vermilion">教练</span>
           </Link>
+          {profile?.avatar_url && (
+            <span className="order-last flex items-center gap-2">
+              <img
+                src={profile.avatar_url}
+                alt={profile.name}
+                className="h-7 w-7 rounded-full border border-line"
+              />
+              <button onClick={logout} className="text-xs text-ink-faint hover:text-ink">
+                登出
+              </button>
+            </span>
+          )}
           {profile && (
             <nav className="flex items-center gap-2">
               <NavLink to="/" end className={navClass}>
@@ -80,19 +96,42 @@ function Gate({
   )
 }
 
+function Login() {
+  return (
+    <div className="mx-auto mt-24 max-w-sm text-center">
+      <h1 className="rise font-display text-3xl font-semibold">
+        刷题<span className="text-vermilion">教练</span>
+      </h1>
+      <p className="rise rise-1 mt-3 text-sm text-ink-soft">
+        AI 教练帮你记住更多做过的题、修复真实的弱点。
+      </p>
+      <a
+        href="/api/auth/github"
+        className="rise rise-2 mt-8 inline-block rounded-md bg-ink px-6 py-3 text-sm font-medium text-paper hover:opacity-85"
+      >
+        使用 GitHub 登录
+      </a>
+    </div>
+  )
+}
+
 export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authRequired, setAuthRequired] = useState(false)
 
   useEffect(() => {
     api
       .getProfile()
       .then(setProfile)
       .catch((e: unknown) => {
-        if (!(e instanceof ApiError && e.status === 404)) console.error(e)
+        if (e instanceof ApiError && e.status === 401) setAuthRequired(true)
+        else if (!(e instanceof ApiError && e.status === 404)) console.error(e)
       })
       .finally(() => setLoading(false))
   }, [])
+
+  if (authRequired) return <Login />
 
   return (
     <BrowserRouter>

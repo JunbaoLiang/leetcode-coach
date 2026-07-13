@@ -35,6 +35,7 @@ class ProfileOut(ProfileIn):
 
     id: int
     created_at: datetime
+    avatar_url: str | None = None
 
 
 # --- problems ---------------------------------------------------------------

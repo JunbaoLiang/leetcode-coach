@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
     attempts,
+    auth,
     hints,
     mock,
     plan,
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 for router_module in (
+    auth,
     profile,
     problems,
     plan,

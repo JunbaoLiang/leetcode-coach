@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import get_db
 from app.models import Attempt, User
 from app.schemas import MISTAKE_TAGS, ConfirmTagsIn, ReviewCodeIn, ReviewCodeOut
@@ -10,10 +11,15 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/review-code", response_model=ReviewCodeOut)
-async def review_code(body: ReviewCodeIn, db: Session = Depends(get_db)) -> ReviewCodeOut:
+async def review_code(
+    body: ReviewCodeIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> ReviewCodeOut:
     attempt = db.get(Attempt, body.attempt_id)
     if attempt is None:
         raise HTTPException(404, "attempt not found")
+    ensure_owner(attempt.user_id, current)
     if attempt.outcome is None:
         raise HTTPException(409, "attempt not finished yet")
     if not attempt.code_snapshot:
@@ -53,10 +59,16 @@ async def review_code(body: ReviewCodeIn, db: Session = Depends(get_db)) -> Revi
 
 
 @router.post("/attempts/{attempt_id}/confirm-tags")
-def confirm_tags(attempt_id: int, body: ConfirmTagsIn, db: Session = Depends(get_db)) -> dict:
+def confirm_tags(
+    attempt_id: int,
+    body: ConfirmTagsIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> dict:
     attempt = db.get(Attempt, attempt_id)
     if attempt is None:
         raise HTTPException(404, "attempt not found")
+    ensure_owner(attempt.user_id, current)
     unknown = set(body.tags) - set(MISTAKE_TAGS)
     if unknown:
         raise HTTPException(422, f"unknown mistake tags: {sorted(unknown)}")

@@ -1,13 +1,13 @@
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.config import settings
 from app.db import get_db
 from app.models import Attempt, Problem, Review, User
-from app.routers.profile import get_current_user
 from app.schemas import PlanNewItem, PlanReviewItem, ProblemOut, TodayPlanOut
 from app.services.planner import DueReview, NewCandidate, build_today_plan
 from app.services.tracks import ml_unlocked
@@ -39,10 +39,9 @@ def compute_streak(db: Session, user_id: int, today: date) -> int:
 
 
 @router.get("/plan/today", response_model=TodayPlanOut)
-def today_plan(db: Session = Depends(get_db)) -> TodayPlanOut:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet — complete onboarding first")
+def today_plan(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> TodayPlanOut:
     today = date.today()
 
     reviews = {r.problem_id: r for r in db.scalars(select(Review).where(Review.user_id == user.id))}

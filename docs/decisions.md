@@ -23,3 +23,8 @@
 - 2026-07-13 · ML 判题 test_spec 内含参考实现(expected/expected_code),浏览器 devtools 理论可见——判题本就发生在客户端,PLAN 的"不泄露"要求落实在失败提示层(只报形状与容差)。全部 20 个用例已用独立参考解法脚本验证通过。
 - 2026-07-13 · Pyodide 从 jsdelivr CDN 懒加载(首次 ▶ 运行测试时下载,numpy 一并加载);CodeMirror 用 @uiw/react-codemirror 封装并按需 code-split,主包体积不受影响。
 - 2026-07-13 · ML 题失败计数口径:一次「运行测试」中只要有用例失败记 1 次 judge_failures(而非按用例数累计),与"判题失败次数"的直觉一致。
+- 2026-07-13 · 鉴权采用 AUTH_ENABLED 显式开关:本地 dev 保持零配置单用户(不因配了 GitHub 凭据就强制登录);会话用 HMAC-SHA256 签名 cookie 手写实现(~30 行),不引入 JWT/authlib 重依赖。
+- 2026-07-13 · 越权访问一律返回 404 而非 403:不向外确认资源存在性。
+- 2026-07-13 · 新 OAuth 用户以 onboarded=false 创建,GET /profile 对未 onboarding 用户返回 404 驱动前端进问卷;迁移把存量本地用户直接标记 onboarded=true。
+- 2026-07-13 · 生产部署用 Vercel rewrites 做同源 /api 代理:OAuth callback 也走前端域名,会话 cookie 天然第一方,无跨域 cookie 问题;GitHub OAuth App 的 callback URL 必须填前端域名。
+- 2026-07-13 · demo GIF 用 Pillow 把三张页面截图串成轮播(本机无 ffmpeg/ImageMagick);后续可换成真实操作录屏。

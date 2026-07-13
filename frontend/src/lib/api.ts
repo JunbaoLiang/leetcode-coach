@@ -7,6 +7,7 @@ export type Outcome = 'ac_first_try' | 'ac' | 'failed' | 'abandoned'
 
 export interface Profile {
   id: number
+  avatar_url?: string | null
   name: string
   background: string
   target_track: Track
