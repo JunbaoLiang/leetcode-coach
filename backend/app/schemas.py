@@ -53,6 +53,13 @@ class ProblemOut(BaseModel):
     importance: int
 
 
+class ProblemDetail(ProblemOut):
+    """Single-problem view — ML problems carry their statement and test spec."""
+
+    statement: str | None = None
+    test_spec: dict | None = None
+
+
 # --- plan -------------------------------------------------------------------
 
 

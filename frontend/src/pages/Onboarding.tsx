@@ -123,7 +123,9 @@ export default function Onboarding({
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-ink-faint">M1 阶段课程模板以 MLE 为准,其余赛道 M4 生效。</p>
+          <p className="mt-1 text-xs text-ink-faint">
+            赛道决定算法:ML 配比与难度上限;ML 手写题在算法课程完成 1/3 后解锁。
+          </p>
         </fieldset>
 
         <div className="grid grid-cols-3 gap-4">

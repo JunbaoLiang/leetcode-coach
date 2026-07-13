@@ -27,6 +27,9 @@ export interface Problem {
   difficulty: 'easy' | 'medium' | 'hard'
   patterns: string[]
   importance: number
+  // ML-track problems carry their original statement + browser-judged test spec
+  statement?: string | null
+  test_spec?: Record<string, unknown> | null
 }
 
 export interface PlanReviewItem {
@@ -224,6 +227,7 @@ export const api = {
       mistake_tags: string[]
       code_snapshot?: string
       self_explanation?: string
+      judge_failures?: number
     },
   ) => request<FinishResult>(`/api/attempts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   getStats: () => request<Stats>('/api/stats'),

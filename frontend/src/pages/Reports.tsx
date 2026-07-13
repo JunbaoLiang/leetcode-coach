@@ -1,46 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Report, type ReportSummary } from '../lib/api'
-
-/** minimal markdown rendering (headings/bold/lists) — no external deps */
-function Markdown({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/)
-  const inline = (s: string) =>
-    s.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
-      part.startsWith('**') && part.endsWith('**') ? (
-        <strong key={i}>{part.slice(2, -2)}</strong>
-      ) : (
-        part
-      ),
-    )
-  return (
-    <div className="space-y-3 text-sm leading-relaxed">
-      {blocks.map((block, i) => {
-        const lines = block.split('\n')
-        if (block.startsWith('# '))
-          return (
-            <h1 key={i} className="font-display text-xl font-semibold">
-              {block.slice(2)}
-            </h1>
-          )
-        if (block.startsWith('## '))
-          return (
-            <h2 key={i} className="font-display text-base font-semibold text-vermilion-deep">
-              {block.slice(3)}
-            </h2>
-          )
-        if (lines.every((l) => l.startsWith('- ') || l.startsWith('* ')))
-          return (
-            <ul key={i} className="list-inside list-disc space-y-1">
-              {lines.map((l, j) => (
-                <li key={j}>{inline(l.slice(2))}</li>
-              ))}
-            </ul>
-          )
-        return <p key={i}>{inline(block)}</p>
-      })}
-    </div>
-  )
-}
+import Markdown from '../components/Markdown'
 
 function exportMarkdown(report: Report) {
   const blob = new Blob([report.content_md], { type: 'text/markdown;charset=utf-8' })
