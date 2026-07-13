@@ -4,12 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Problem
-from app.schemas import ProblemOut
+from app.schemas import ProblemDetail, ProblemOut
 
 router = APIRouter(prefix="/api")
 
 
-@router.get("/problems/{problem_id}", response_model=ProblemOut)
+@router.get("/problems/{problem_id}", response_model=ProblemDetail)
 def get_problem(problem_id: int, db: Session = Depends(get_db)) -> Problem:
     problem = db.get(Problem, problem_id)
     if problem is None:

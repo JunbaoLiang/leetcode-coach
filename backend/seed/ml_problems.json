@@ -1,0 +1,342 @@
+[
+ {
+  "track": "ml",
+  "slug": "ml-linear-regression-gd",
+  "title": "线性回归 · 批量梯度下降",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "regression"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n用**批量梯度下降**实现线性回归,返回训练后的增广权重向量。\n\n```python\ndef linear_regression_gd(X, y, lr=0.1, epochs=2000):\n    ...\n    return theta  # shape (d+1,)\n```\n\n- `X`: 形状 `(n, d)` 的特征矩阵(测试数据已标准化,可放心用默认学习率)\n- `y`: 形状 `(n,)` 的目标值\n- 返回 `theta`,形状 `(d+1,)`,**`theta[0]` 是偏置项**,`theta[1:]` 对应各特征权重\n\n## 说明\n\n- 损失为均方误差 `L = mean((X_aug @ theta - y) ** 2)`,梯度用全批量计算\n- 建议先给 `X` 拼一列 1(增广),初始 `theta` 取零向量\n- 只允许 numpy;判题用 `np.allclose` 与最小二乘闭式解比较(`rtol=1e-2, atol=1e-3`),训练足够收敛即可通过",
+  "test_spec": {
+   "entry_point": "linear_regression_gd",
+   "prelude": "import numpy as np",
+   "cases": [
+    {
+     "name": "一维无噪声直线 y=2x+1",
+     "setup": "rng = np.random.default_rng(0)\nX = rng.normal(size=(30, 1))\ny = 2 * X[:, 0] + 1",
+     "call": "linear_regression_gd(X, y)",
+     "expected_code": "Xa = np.hstack([np.ones((len(X), 1)), X])\n__expected = np.linalg.lstsq(Xa, y, rcond=None)[0]",
+     "rtol": 0.01,
+     "atol": 0.001
+    },
+    {
+     "name": "三维带噪声",
+     "setup": "rng = np.random.default_rng(1)\nX = rng.normal(size=(80, 3))\ny = X @ np.array([1.5, -2.0, 0.5]) + 0.7 + rng.normal(scale=0.05, size=80)",
+     "call": "linear_regression_gd(X, y)",
+     "expected_code": "Xa = np.hstack([np.ones((len(X), 1)), X])\n__expected = np.linalg.lstsq(Xa, y, rcond=None)[0]",
+     "rtol": 0.01,
+     "atol": 0.001
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-logistic-step",
+  "title": "逻辑回归 · 一步 BCE 梯度",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "classification"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n实现逻辑回归在**平均二元交叉熵(BCE)损失**下的一步全批量梯度下降。\n\n```python\ndef logistic_step(theta, X, y, lr):\n    ...\n    return theta_new  # shape (d,)\n```\n\n- `theta`: 形状 `(d,)` 的当前参数(偏置已包含在内——测试中 `X` 的第一列恒为 1)\n- `X`: 形状 `(n, d)`;`y`: 形状 `(n,)`,取值 0/1\n- 返回执行**一步**更新后的参数,不要循环多步\n\n## 说明\n\n- 预测 `p = sigmoid(X @ theta)`;平均 BCE 的梯度是 `X.T @ (p - y) / n`(自己推一遍)\n- 更新:`theta - lr * grad`\n- 只允许 numpy;判题容差 `rtol=1e-6, atol=1e-9`",
+  "test_spec": {
+   "entry_point": "logistic_step",
+   "prelude": "import numpy as np",
+   "cases": [
+    {
+     "name": "零初始化一步",
+     "setup": "rng = np.random.default_rng(2)\nX = np.hstack([np.ones((40, 1)), rng.normal(size=(40, 2))])\ny = (rng.random(40) > 0.5).astype(float)\ntheta = np.zeros(3)",
+     "call": "logistic_step(theta, X, y, 0.5)",
+     "expected": "theta - 0.5 * (X.T @ (1.0 / (1.0 + np.exp(-(X @ theta))) - y)) / len(y)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    },
+    {
+     "name": "随机参数处一步",
+     "setup": "rng = np.random.default_rng(3)\nX = np.hstack([np.ones((25, 1)), rng.normal(size=(25, 4))])\ny = (rng.random(25) > 0.3).astype(float)\ntheta = rng.normal(size=5)",
+     "call": "logistic_step(theta, X, y, 0.1)",
+     "expected": "theta - 0.1 * (X.T @ (1.0 / (1.0 + np.exp(-(X @ theta))) - y)) / len(y)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-knn-predict",
+  "title": "kNN 分类器",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "classification"
+  ],
+  "importance": 3,
+  "statement": "## 任务\n\n实现 k 近邻分类器的预测函数(欧氏距离,多数投票)。\n\n```python\ndef knn_predict(X_train, y_train, X_test, k):\n    ...\n    return labels  # shape (m,)\n```\n\n- `X_train`: `(n, d)`;`y_train`: `(n,)`,非负整数标签;`X_test`: `(m, d)`\n- 对每个测试样本:取欧氏距离最近的 `k` 个训练样本,预测出现次数最多的标签\n\n## 约定\n\n- **票数并列时取标签值较小者**\n- 距离并列时按训练集中的先后顺序取(`np.argsort` 的稳定行为即可)\n- 只允许 numpy,不得用 sklearn/scipy;判题精确比较(标签为整数)",
+  "test_spec": {
+   "entry_point": "knn_predict",
+   "prelude": "import numpy as np",
+   "cases": [
+    {
+     "name": "两簇高斯 k=3",
+     "setup": "rng = np.random.default_rng(4)\nA = rng.normal(loc=0.0, scale=0.5, size=(20, 2))\nB = rng.normal(loc=3.0, scale=0.5, size=(20, 2))\nX_train = np.vstack([A, B])\ny_train = np.array([0] * 20 + [1] * 20)\nX_test = np.array([[0.1, 0.2], [2.9, 3.1], [1.5, 1.5], [-0.5, 0.0]])",
+     "call": "knn_predict(X_train, y_train, X_test, 3)",
+     "expected_code": "d2 = ((X_test[:, None, :] - X_train[None, :, :]) ** 2).sum(-1)\nidx = np.argsort(d2, axis=1, kind='stable')[:, :3]\n__expected = np.array([np.argmax(np.bincount(y_train[row])) for row in idx])",
+     "rtol": 0,
+     "atol": 0
+    },
+    {
+     "name": "三分类 k=5 含平票",
+     "setup": "rng = np.random.default_rng(5)\nX_train = rng.normal(size=(30, 3))\ny_train = rng.integers(0, 3, size=30)\nX_test = rng.normal(size=(8, 3))",
+     "call": "knn_predict(X_train, y_train, X_test, 5)",
+     "expected_code": "d2 = ((X_test[:, None, :] - X_train[None, :, :]) ** 2).sum(-1)\nidx = np.argsort(d2, axis=1, kind='stable')[:, :5]\n__expected = np.array([np.argmax(np.bincount(y_train[row])) for row in idx])",
+     "rtol": 0,
+     "atol": 0
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-kmeans",
+  "title": "k-means · 含空簇处理",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "clustering"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n从给定初始质心出发,运行固定轮数的 Lloyd 迭代,返回最终质心。\n\n```python\ndef kmeans(X, centroids, n_iters):\n    ...\n    return centroids  # shape (k, d)\n```\n\n- `X`: `(n, d)`;`centroids`: `(k, d)` 初始质心;`n_iters`: 迭代轮数\n- 每轮:① 每个点分配给最近质心(欧氏距离,并列取索引较小的簇);② 每个质心更新为簇内均值\n\n## 空簇处理(关键)\n\n某一轮中若某个簇没有分到任何点,**该质心保持上一轮的值不变**(不要除以零,也不要随机重置)。\n\n只允许 numpy;判题容差 `rtol=1e-6, atol=1e-8`。",
+  "test_spec": {
+   "entry_point": "kmeans",
+   "prelude": "import numpy as np\ndef __ref_kmeans(X, C0, n_iters):\n    C = C0.astype(float).copy()\n    for _ in range(n_iters):\n        d2 = ((X[:, None, :] - C[None, :, :]) ** 2).sum(-1)\n        assign = d2.argmin(axis=1)\n        for j in range(len(C)):\n            pts = X[assign == j]\n            if len(pts) > 0:\n                C[j] = pts.mean(axis=0)\n    return C",
+   "cases": [
+    {
+     "name": "三簇正常收敛",
+     "setup": "rng = np.random.default_rng(6)\nX = np.vstack([rng.normal(c, 0.3, size=(25, 2)) for c in ([0, 0], [4, 0], [2, 4])])\nC0 = np.array([[0.5, 0.5], [3.5, 0.5], [2.0, 3.0]])",
+     "call": "kmeans(X, C0, 10)",
+     "expected": "__ref_kmeans(X, C0, 10)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    },
+    {
+     "name": "故意制造空簇",
+     "setup": "X = np.array([[0.0, 0.0], [0.1, 0.0], [0.0, 0.1], [10.0, 10.0]])\nC0 = np.array([[0.0, 0.0], [10.0, 10.0], [100.0, 100.0]])",
+     "call": "kmeans(X, C0, 5)",
+     "expected": "__ref_kmeans(X, C0, 5)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-pca-svd",
+  "title": "PCA · 基于 SVD",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "dimensionality"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n用 SVD 实现主成分分析,返回前 k 个主成分方向。\n\n```python\ndef pca_components(X, k):\n    ...\n    return components  # shape (k, d)\n```\n\n- `X`: `(n, d)`;先**按列均值中心化**,再做 SVD(不要用协方差矩阵 + eig,数值更差)\n- 返回按奇异值从大到小排列的前 `k` 个右奇异向量(每行一个方向)\n\n## 符号规范(关键)\n\nSVD 的方向有正负号歧义。约定:**每个主成分向量中绝对值最大的分量为正**;若需要翻转,整行乘以 -1。(绝对值并列时取索引靠前的分量,即 `np.argmax(np.abs(v))`。)\n\n只允许 numpy(`np.linalg.svd` 可用);判题容差 `rtol=1e-6, atol=1e-8`。",
+  "test_spec": {
+   "entry_point": "pca_components",
+   "prelude": "import numpy as np\ndef __ref_pca(X, k):\n    Xc = X - X.mean(axis=0)\n    _, _, Vt = np.linalg.svd(Xc, full_matrices=False)\n    V = Vt[:k]\n    for i in range(len(V)):\n        j = np.argmax(np.abs(V[i]))\n        if V[i, j] < 0:\n            V[i] = -V[i]\n    return V",
+   "cases": [
+    {
+     "name": "各向异性高斯 k=2",
+     "setup": "rng = np.random.default_rng(7)\nZ = rng.normal(size=(200, 3))\nX = Z @ np.diag([5.0, 2.0, 0.3]) + np.array([1.0, -2.0, 0.5])",
+     "call": "pca_components(X, 2)",
+     "expected": "__ref_pca(X, 2)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    },
+    {
+     "name": "k=全维",
+     "setup": "rng = np.random.default_rng(8)\nX = rng.normal(size=(50, 4)) * np.array([3.0, 1.0, 0.5, 0.1])",
+     "call": "pca_components(X, 4)",
+     "expected": "__ref_pca(X, 4)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-softmax-xent",
+  "title": "数值稳定的 Softmax 交叉熵",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "numerical_stability"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n实现数值稳定的 softmax 交叉熵损失(多分类,整数标签)。\n\n```python\ndef softmax_xent(logits, labels):\n    ...\n    return loss  # 标量,float\n```\n\n- `logits`: `(n, C)`;`labels`: `(n,)`,取值 `0..C-1`\n- 返回平均交叉熵 `mean(-log softmax(logits)[i, labels[i]])`\n\n## 数值稳定性(本题考点)\n\n测试中 logits 的量级会达到 **1e4**。直接 `np.exp(logits)` 会溢出成 `inf`。标准做法:每行先减去该行最大值(log-sum-exp 技巧),再计算。\n\n只允许 numpy;判题容差 `rtol=1e-6, atol=1e-9`。",
+  "test_spec": {
+   "entry_point": "softmax_xent",
+   "prelude": "import numpy as np\ndef __ref_xent(Z, y):\n    Zs = Z - Z.max(axis=1, keepdims=True)\n    lse = np.log(np.exp(Zs).sum(axis=1))\n    return float(np.mean(lse - Zs[np.arange(len(y)), y]))",
+   "cases": [
+    {
+     "name": "常规量级",
+     "setup": "rng = np.random.default_rng(9)\nZ = rng.normal(size=(16, 5))\ny = rng.integers(0, 5, size=16)",
+     "call": "softmax_xent(Z, y)",
+     "expected": "__ref_xent(Z, y)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    },
+    {
+     "name": "巨大 logits(1e4)不溢出",
+     "setup": "rng = np.random.default_rng(10)\nZ = rng.normal(size=(8, 4)) * 1e4\ny = rng.integers(0, 4, size=8)",
+     "call": "softmax_xent(Z, y)",
+     "expected": "__ref_xent(Z, y)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-mlp-backprop",
+  "title": "两层 MLP · 前向与反向传播",
+  "difficulty": "hard",
+  "patterns": [
+   "ml_coding",
+   "neural_networks"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n对一个两层 MLP(ReLU 隐层 + softmax 输出 + 平均交叉熵)手写一次前向与反向传播,返回全部参数梯度。\n\n```python\ndef mlp_grads(X, y, W1, b1, W2, b2):\n    ...\n    return np.concatenate([dW1.ravel(), db1.ravel(), dW2.ravel(), db2.ravel()])\n```\n\n- 前向:`H = relu(X @ W1 + b1)`,`Z = H @ W2 + b2`,损失 = 平均 softmax 交叉熵\n- `X`: `(n, d)`;`W1`: `(d, h)`;`b1`: `(h,)`;`W2`: `(h, C)`;`b2`: `(C,)`;`y`: `(n,)` 整数标签\n- 返回四个梯度按上述顺序 `ravel` 后拼接的一维数组\n\n## 提示\n\n- softmax + 交叉熵对 `Z` 的梯度是 `(softmax(Z) - onehot(y)) / n`(记住除以 n)\n- ReLU 的梯度:`H > 0` 处为 1,否则 0\n- softmax 记得减 max 保持稳定;只允许 numpy;容差 `rtol=1e-6, atol=1e-8`",
+  "test_spec": {
+   "entry_point": "mlp_grads",
+   "prelude": "import numpy as np\ndef __ref_mlp(X, y, W1, b1, W2, b2):\n    n = len(X)\n    A1 = X @ W1 + b1\n    H = np.maximum(A1, 0)\n    Z = H @ W2 + b2\n    Zs = Z - Z.max(axis=1, keepdims=True)\n    Pm = np.exp(Zs) / np.exp(Zs).sum(axis=1, keepdims=True)\n    G = Pm.copy()\n    G[np.arange(n), y] -= 1.0\n    G /= n\n    dW2 = H.T @ G\n    db2 = G.sum(axis=0)\n    dH = G @ W2.T\n    dA1 = dH * (A1 > 0)\n    dW1 = X.T @ dA1\n    db1 = dA1.sum(axis=0)\n    return np.concatenate([dW1.ravel(), db1.ravel(), dW2.ravel(), db2.ravel()])",
+   "cases": [
+    {
+     "name": "小网络随机权重",
+     "setup": "rng = np.random.default_rng(11)\nX = rng.normal(size=(12, 4))\ny = rng.integers(0, 3, size=12)\nW1 = rng.normal(scale=0.5, size=(4, 6)); b1 = rng.normal(scale=0.1, size=6)\nW2 = rng.normal(scale=0.5, size=(6, 3)); b2 = rng.normal(scale=0.1, size=3)",
+     "call": "mlp_grads(X, y, W1, b1, W2, b2)",
+     "expected": "__ref_mlp(X, y, W1, b1, W2, b2)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    },
+    {
+     "name": "部分神经元死亡(ReLU 全零列)",
+     "setup": "rng = np.random.default_rng(12)\nX = np.abs(rng.normal(size=(10, 3)))\ny = rng.integers(0, 2, size=10)\nW1 = rng.normal(scale=0.5, size=(3, 5)); W1[:, 0] = -5.0\nb1 = np.zeros(5); b1[0] = -1.0\nW2 = rng.normal(scale=0.5, size=(5, 2)); b2 = np.zeros(2)",
+     "call": "mlp_grads(X, y, W1, b1, W2, b2)",
+     "expected": "__ref_mlp(X, y, W1, b1, W2, b2)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-clf-metrics",
+  "title": "评估指标:Precision / Recall / F1 / AUC",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "metrics"
+  ],
+  "importance": 3,
+  "statement": "## 任务\n\n给定二分类的真实标签与预测分数,计算四个指标。\n\n```python\ndef clf_metrics(y_true, y_score, threshold=0.5):\n    ...\n    return np.array([precision, recall, f1, auc])\n```\n\n- `y_true`: `(n,)`,0/1;`y_score`: `(n,)`,任意实数分数\n- 前三个指标基于 `y_pred = (y_score >= threshold)`\n- **分母为 0 时该指标取 0**(如没有任何正预测时 precision=0)\n\n## AUC 约定\n\n用秩统计量(Mann-Whitney)计算:对分数从小到大排秩(**并列分数取平均秩**),\n`AUC = (正类秩和 - n_pos*(n_pos+1)/2) / (n_pos * n_neg)`。\n\n只允许 numpy,不得用 sklearn;判题容差 `rtol=1e-6, atol=1e-9`。",
+  "test_spec": {
+   "entry_point": "clf_metrics",
+   "prelude": "import numpy as np\ndef __ref_metrics(y, s, th):\n    p = (s >= th).astype(int)\n    tp = int(((p == 1) & (y == 1)).sum()); fp = int(((p == 1) & (y == 0)).sum())\n    fn = int(((p == 0) & (y == 1)).sum())\n    prec = tp / (tp + fp) if tp + fp else 0.0\n    rec = tp / (tp + fn) if tp + fn else 0.0\n    f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0\n    order = np.argsort(s, kind='stable')\n    ranks = np.empty(len(s))\n    ranks[order] = np.arange(1, len(s) + 1)\n    for v in np.unique(s):\n        m = s == v\n        ranks[m] = ranks[m].mean()\n    npos = int(y.sum()); nneg = len(y) - npos\n    auc = (ranks[y == 1].sum() - npos * (npos + 1) / 2) / (npos * nneg) if npos and nneg else 0.0\n    return np.array([prec, rec, f1, auc])",
+   "cases": [
+    {
+     "name": "无并列分数",
+     "setup": "rng = np.random.default_rng(13)\ny = rng.integers(0, 2, size=50)\ns = rng.random(50) * 0.5 + y * 0.3",
+     "call": "clf_metrics(y, s)",
+     "expected": "__ref_metrics(y, s, 0.5)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    },
+    {
+     "name": "含并列分数(平均秩)",
+     "setup": "y = np.array([1, 0, 1, 1, 0, 0, 1, 0])\ns = np.array([0.9, 0.9, 0.7, 0.5, 0.5, 0.5, 0.3, 0.1])",
+     "call": "clf_metrics(y, s)",
+     "expected": "__ref_metrics(y, s, 0.5)",
+     "rtol": 1e-06,
+     "atol": 1e-09
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-sdpa",
+  "title": "Scaled Dot-Product Attention",
+  "difficulty": "medium",
+  "patterns": [
+   "ml_coding",
+   "attention"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n实现缩放点积注意力。\n\n```python\ndef sdpa(Q, K, V, mask=None):\n    ...\n    return out  # shape (n_q, d_v)\n```\n\n- `Q`: `(n_q, d_k)`;`K`: `(n_k, d_k)`;`V`: `(n_k, d_v)`\n- `scores = Q @ K.T / sqrt(d_k)`,softmax 按**最后一维**归一化,输出 `weights @ V`\n\n## mask 约定\n\n- `mask` 为 `None` 或形状 `(n_q, n_k)` 的布尔矩阵,**`True` 表示可见**\n- 不可见位置在 softmax 前置为 `-1e9`(不要用 `-inf`,避免整行全遮时出 NaN)\n\nsoftmax 需数值稳定(减每行 max)。只允许 numpy;容差 `rtol=1e-6, atol=1e-8`。",
+  "test_spec": {
+   "entry_point": "sdpa",
+   "prelude": "import numpy as np\ndef __ref_sdpa(Q, K, V, mask=None):\n    S = Q @ K.T / np.sqrt(Q.shape[-1])\n    if mask is not None:\n        S = np.where(mask, S, -1e9)\n    S = S - S.max(axis=-1, keepdims=True)\n    W = np.exp(S) / np.exp(S).sum(axis=-1, keepdims=True)\n    return W @ V",
+   "cases": [
+    {
+     "name": "无 mask",
+     "setup": "rng = np.random.default_rng(14)\nQ = rng.normal(size=(6, 8)); K = rng.normal(size=(10, 8)); V = rng.normal(size=(10, 4))",
+     "call": "sdpa(Q, K, V)",
+     "expected": "__ref_sdpa(Q, K, V)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    },
+    {
+     "name": "因果 mask",
+     "setup": "rng = np.random.default_rng(15)\nQ = rng.normal(size=(7, 8)); K = rng.normal(size=(7, 8)); V = rng.normal(size=(7, 5))\nmask = np.tril(np.ones((7, 7), dtype=bool))",
+     "call": "sdpa(Q, K, V, mask)",
+     "expected": "__ref_sdpa(Q, K, V, mask)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    }
+   ]
+  }
+ },
+ {
+  "track": "ml",
+  "slug": "ml-mha",
+  "title": "Multi-Head Attention",
+  "difficulty": "hard",
+  "patterns": [
+   "ml_coding",
+   "attention"
+  ],
+  "importance": 4,
+  "statement": "## 任务\n\n在上一题 SDPA 的基础上实现多头自注意力(单序列,无 mask)。\n\n```python\ndef mha(X, Wq, Wk, Wv, Wo, num_heads):\n    ...\n    return out  # shape (n, d_model)\n```\n\n- `X`: `(n, d_model)`;`Wq/Wk/Wv/Wo`: `(d_model, d_model)`;`num_heads` 整除 `d_model`\n- 步骤:① `Q = X@Wq, K = X@Wk, V = X@Wv`;② 把最后一维切成 `num_heads` 份,每头维度 `d_h = d_model // num_heads`;③ 每头独立做缩放点积注意力(缩放用 `sqrt(d_h)`);④ 按原顺序拼回 `(n, d_model)`;⑤ 乘输出投影 `Wo`\n\n## 提示\n\n- 切头即 `reshape(n, h, d_h)` 后按头处理;新手常见 bug 是拼接顺序错乱——先 reshape 再 transpose,最后逆操作还原\n- softmax 数值稳定同前;只允许 numpy;容差 `rtol=1e-6, atol=1e-8`",
+  "test_spec": {
+   "entry_point": "mha",
+   "prelude": "import numpy as np\ndef __ref_mha(X, Wq, Wk, Wv, Wo, h):\n    n, dm = X.shape\n    dh = dm // h\n    Q = (X @ Wq).reshape(n, h, dh).transpose(1, 0, 2)\n    K = (X @ Wk).reshape(n, h, dh).transpose(1, 0, 2)\n    V = (X @ Wv).reshape(n, h, dh).transpose(1, 0, 2)\n    S = Q @ K.transpose(0, 2, 1) / np.sqrt(dh)\n    S = S - S.max(axis=-1, keepdims=True)\n    W = np.exp(S) / np.exp(S).sum(axis=-1, keepdims=True)\n    O = (W @ V).transpose(1, 0, 2).reshape(n, dm)\n    return O @ Wo",
+   "cases": [
+    {
+     "name": "2 头",
+     "setup": "rng = np.random.default_rng(16)\nX = rng.normal(size=(5, 8))\nWq, Wk, Wv, Wo = (rng.normal(scale=0.5, size=(8, 8)) for _ in range(4))",
+     "call": "mha(X, Wq, Wk, Wv, Wo, 2)",
+     "expected": "__ref_mha(X, Wq, Wk, Wv, Wo, 2)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    },
+    {
+     "name": "4 头",
+     "setup": "rng = np.random.default_rng(17)\nX = rng.normal(size=(9, 12))\nWq, Wk, Wv, Wo = (rng.normal(scale=0.5, size=(12, 12)) for _ in range(4))",
+     "call": "mha(X, Wq, Wk, Wv, Wo, 4)",
+     "expected": "__ref_mha(X, Wq, Wk, Wv, Wo, 4)",
+     "rtol": 1e-06,
+     "atol": 1e-08
+    }
+   ]
+  }
+ }
+]

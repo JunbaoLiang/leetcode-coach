@@ -13,8 +13,12 @@ import {
   type Profile,
   type TeachbackResult,
 } from '../lib/api'
+import { lazy, Suspense } from 'react'
 import { DifficultyBadge, PatternChips, ProblemTitle } from '../components/ProblemMeta'
 import { MISTAKE_TAG_LABELS, OUTCOME_LABELS, RECALL_LABELS } from '../lib/labels'
+
+// CodeMirror is heavy — only fetch it when an ML problem is actually opened
+const MlWorkbench = lazy(() => import('../components/MlWorkbench'))
 
 function fmtClock(totalSec: number): string {
   const m = Math.floor(totalSec / 60)
@@ -63,6 +67,10 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
   const [explanation, setExplanation] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<FinishResult | null>(null)
+
+  // ── ML track: in-browser editor + Pyodide judge ─────────────────────────
+  const [mlCode, setMlCode] = useState('')
+  const [judgeFailures, setJudgeFailures] = useState(0)
 
   useEffect(() => {
     if (!Number.isFinite(problemId)) return
@@ -126,6 +134,7 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
         mistake_tags: tags,
         code_snapshot: code || undefined,
         self_explanation: explanation || undefined,
+        judge_failures: judgeFailures,
       })
       setResult(res)
       setRunning(false)
@@ -142,6 +151,7 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
   const url = profile ? problemUrl(problem.slug, profile.platform) : '#'
   const platformName = profile?.platform === 'leetcode_com' ? 'leetcode.com' : 'leetcode.cn'
   const finished = result !== null
+  const isMl = problem.track === 'ml'
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_minmax(320px,420px)]">
@@ -155,17 +165,19 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
           <ProblemTitle problem={problem} />
         </h1>
 
-        <div className="rise rise-2 mt-4 flex items-center gap-3">
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-85"
-          >
-            在 {platformName} 打开 ↗
-          </a>
-          <span className="text-xs text-ink-faint">题面与判题都在官网完成</span>
-        </div>
+        {!isMl && (
+          <div className="rise rise-2 mt-4 flex items-center gap-3">
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-85"
+            >
+              在 {platformName} 打开 ↗
+            </a>
+            <span className="text-xs text-ink-faint">题面与判题都在官网完成</span>
+          </div>
+        )}
 
         {/* timer */}
         <div className="rise rise-3 mt-6 flex items-center gap-4 rounded-md border border-line bg-card px-5 py-4 shadow-sm">
@@ -186,6 +198,26 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
           )}
           {running && !finished && <span className="tick-pulse h-2 w-2 rounded-full bg-vermilion" />}
         </div>
+
+        {/* ML track: original statement + editor + in-browser judge */}
+        {isMl && (
+          <div className="rise rise-4 mt-6">
+            <Suspense fallback={<p className="text-sm text-ink-faint">加载编辑器…</p>}>
+              <MlWorkbench
+                problem={problem}
+                code={mlCode}
+                setCode={setMlCode}
+                onJudgeRun={(hadFailure) => hadFailure && setJudgeFailures((f) => f + 1)}
+                disabled={finished}
+              />
+            </Suspense>
+            {judgeFailures > 0 && !finished && (
+              <p className="mt-2 text-xs text-ink-faint">
+                判题失败 {judgeFailures} 次 · 会计入复习安排
+              </p>
+            )}
+          </div>
+        )}
 
         {/* record form / result */}
         {finished ? (
@@ -306,6 +338,7 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
             onClick={() => {
               setFormOpen(true)
               setRunning(false)
+              if (isMl && mlCode.trim()) setCode(mlCode) // archive the editor content
             }}
             className="rise rise-4 mt-6 rounded-md bg-vermilion px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-vermilion-deep"
           >

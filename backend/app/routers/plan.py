@@ -10,6 +10,7 @@ from app.models import Attempt, Problem, Review, User
 from app.routers.profile import get_current_user
 from app.schemas import PlanNewItem, PlanReviewItem, ProblemOut, TodayPlanOut
 from app.services.planner import DueReview, NewCandidate, build_today_plan
+from app.services.tracks import ml_unlocked
 
 router = APIRouter(prefix="/api")
 
@@ -17,6 +18,8 @@ PLATFORM_HOST = {"leetcode_cn": "leetcode.cn", "leetcode_com": "leetcode.com"}
 
 
 def problem_url(problem: Problem, user: User) -> str:
+    if problem.track == "ml":
+        return ""  # ML problems live inside the coach — no external page
     return f"https://{PLATFORM_HOST[user.platform]}/problems/{problem.slug}/"
 
 
@@ -64,18 +67,27 @@ def today_plan(db: Session = Depends(get_db)) -> TodayPlanOut:
         )
     }
     candidates: list[NewCandidate] = []
-    for p in db.scalars(select(Problem).where(Problem.track == "algo")):
+    ml_candidates: list[NewCandidate] = []
+    algo_total = algo_solved = 0
+    for p in db.scalars(select(Problem)):
+        is_primer = "primers" in p.patterns
+        if p.track == "algo" and not is_primer:
+            algo_total += 1
+            if p.id in solved_ids:
+                algo_solved += 1
         if p.id in solved_ids or p.id in reviews:
             continue
-        candidates.append(
-            NewCandidate(
-                problem_id=p.id,
-                patterns=p.patterns,
-                difficulty=p.difficulty,
-                importance=p.importance,
-                is_primer="primers" in p.patterns,
-            )
+        candidate = NewCandidate(
+            problem_id=p.id,
+            patterns=p.patterns,
+            difficulty=p.difficulty,
+            importance=p.importance,
+            is_primer=is_primer,
         )
+        if p.track == "ml":
+            ml_candidates.append(candidate)
+        else:
+            candidates.append(candidate)
 
     # mastery == learning, untouched for 3+ days -> resurface ahead of brand-new (§9.4.4)
     stale_cutoff = datetime.now() - timedelta(days=3)
@@ -108,6 +120,9 @@ def today_plan(db: Session = Depends(get_db)) -> TodayPlanOut:
         candidates,
         weak_patterns=weakness_profile(db, user.id, today).weak_patterns,
         weakness_weight=settings.weakness_weight,
+        track=user.target_track,
+        ml_candidates=ml_candidates,
+        ml_unlocked=ml_unlocked(user.target_track, algo_solved, algo_total),
     )
 
     problems = {p.id: p for p in db.scalars(select(Problem))}

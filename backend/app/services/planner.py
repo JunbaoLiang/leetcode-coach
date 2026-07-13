@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 from app.services.scheduler import review_priority
+from app.services.tracks import ml_slots, track_config
 
 NEW_PROBLEM_MINUTES = 40
 REVIEW_MINUTES = 20
@@ -104,6 +105,9 @@ def build_today_plan(
     candidates: list[NewCandidate],
     weak_patterns: list[str] | None = None,
     weakness_weight: float = 0.4,
+    track: str = "mle",
+    ml_candidates: list[NewCandidate] | None = None,
+    ml_unlocked: bool = False,
 ) -> TodayPlan:
     budget = weekly_hours * 60 / 7
 
@@ -124,11 +128,20 @@ def build_today_plan(
     if new_count == 0 and not reviews:
         new_count = 1  # a day should never be empty
 
-    pool = [c for c in candidates if include_primers or not c.is_primer]
-    news = _pick_new(pool, new_count, weak_patterns or [], weakness_weight)
+    # §3.2 — track template: difficulty ceiling for new algo problems + algo:ML mix
+    cfg = track_config(track)
+    pool = [
+        c
+        for c in candidates
+        if (include_primers or not c.is_primer) and (cfg.allow_hard or c.difficulty != "hard")
+    ]
+    ml_pool = sorted(ml_candidates or [], key=lambda c: c.problem_id)  # seed order = curriculum
+    ml_n = min(ml_slots(track, new_count, ml_unlocked), len(ml_pool))
+    news = _pick_new(pool, new_count - ml_n, weak_patterns or [], weakness_weight)
+    ml_news = ml_pool[:ml_n]
 
     return TodayPlan(
         review_ids=[r.problem_id for r in reviews],
-        new_ids=[c.problem_id for c in news],
+        new_ids=[c.problem_id for c in news] + [c.problem_id for c in ml_news],
         budget_minutes=round(budget),
     )

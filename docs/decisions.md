@@ -19,3 +19,7 @@
 - 2026-07-13 · 面试评分 prompt 独立为 interviewer_finish.md(PLAN §4 只列了 interviewer.md):in-character 对话与出戏评估是两个人格、两套指令,同文件塞两段会互相污染;str.format 模板也不便条件拼接。
 - 2026-07-13 · mock 随机选题池:非 primers、难度 medium/hard、importance≥3,有弱点 pattern 时优先从中选;MockProblemOut 不返回 patterns 字段,防止向候选人剧透考点。
 - 2026-07-13 · mock 结束后禁止再发消息/重复评估(409):一场面试一份报告,保证历史记录的完整性。
+- 2026-07-13 · ML 解锁进度定义为 已解算法题/算法题总数 ≥ 1/3(PLAN"从课程 1/3 处引入"未定义度量);swe_newgrad 永不解锁。
+- 2026-07-13 · ML 判题 test_spec 内含参考实现(expected/expected_code),浏览器 devtools 理论可见——判题本就发生在客户端,PLAN 的"不泄露"要求落实在失败提示层(只报形状与容差)。全部 20 个用例已用独立参考解法脚本验证通过。
+- 2026-07-13 · Pyodide 从 jsdelivr CDN 懒加载(首次 ▶ 运行测试时下载,numpy 一并加载);CodeMirror 用 @uiw/react-codemirror 封装并按需 code-split,主包体积不受影响。
+- 2026-07-13 · ML 题失败计数口径:一次「运行测试」中只要有用例失败记 1 次 judge_failures(而非按用例数累计),与"判题失败次数"的直觉一致。
