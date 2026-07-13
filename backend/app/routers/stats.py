@@ -1,0 +1,80 @@
+from datetime import date, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.models import Attempt, Problem
+from app.routers.plan import compute_streak
+from app.routers.profile import get_current_user
+from app.schemas import DifficultyProgress, PatternProgress, StatsOut
+from app.services.planner import PATTERN_ORDER
+
+router = APIRouter(prefix="/api")
+
+HEATMAP_WEEKS = 26
+
+
+@router.get("/stats", response_model=StatsOut)
+def stats(db: Session = Depends(get_db)) -> StatsOut:
+    user = get_current_user(db)
+    if user is None:
+        raise HTTPException(404, "no profile yet — complete onboarding first")
+    today = date.today()
+
+    problems = list(db.scalars(select(Problem).where(Problem.track == "algo")))
+    finished = list(
+        db.scalars(
+            select(Attempt).where(Attempt.user_id == user.id, Attempt.outcome.is_not(None))
+        )
+    )
+    solved_ids = {a.problem_id for a in finished if a.outcome in ("ac", "ac_first_try")}
+
+    # pattern progress rings (primers excluded — they are a warmup, not a pattern)
+    pattern_progress = []
+    for pattern in PATTERN_ORDER:
+        in_pattern = [p for p in problems if pattern in p.patterns and "primers" not in p.patterns]
+        if not in_pattern:
+            continue
+        pattern_progress.append(
+            PatternProgress(
+                pattern=pattern,
+                solved=sum(1 for p in in_pattern if p.id in solved_ids),
+                total=len(in_pattern),
+            )
+        )
+
+    difficulty_progress = []
+    for diff in ("easy", "medium", "hard"):
+        in_diff = [p for p in problems if p.difficulty == diff and "primers" not in p.patterns]
+        difficulty_progress.append(
+            DifficultyProgress(
+                difficulty=diff,
+                solved=sum(1 for p in in_diff if p.id in solved_ids),
+                total=len(in_diff),
+            )
+        )
+
+    # GitHub-style activity heatmap
+    start = today - timedelta(weeks=HEATMAP_WEEKS)
+    heatmap: dict[str, int] = {}
+    for a in finished:
+        day = a.created_at.date()
+        if day >= start:
+            heatmap[day.isoformat()] = heatmap.get(day.isoformat(), 0) + 1
+
+    first_try = [a for a in finished if a.outcome == "ac_first_try"]
+    recent = [a for a in finished if a.created_at.date() >= today - timedelta(days=30)]
+    return StatsOut(
+        pattern_progress=pattern_progress,
+        difficulty_progress=difficulty_progress,
+        streak=compute_streak(db, user.id, today),
+        heatmap=heatmap,
+        total_solved=len(solved_ids),
+        total_attempts=len(finished),
+        ac_first_try_rate=round(len(first_try) / len(finished), 3) if finished else None,
+        avg_hint_level_30d=(
+            round(sum(a.hint_level_max for a in recent) / len(recent), 2) if recent else None
+        ),
+    )

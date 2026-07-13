@@ -1,0 +1,22 @@
+[
+  {"lc_id": 2235, "slug": "add-two-integers",                                      "title": "Add Two Integers",                                      "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 2469, "slug": "convert-the-temperature",                               "title": "Convert the Temperature",                               "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 2413, "slug": "smallest-even-multiple",                                "title": "Smallest Even Multiple",                                "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 2236, "slug": "root-equals-sum-of-children",                           "title": "Root Equals Sum of Children",                           "difficulty": "easy", "patterns": ["primers", "trees"], "importance": 1},
+  {"lc_id": 1486, "slug": "xor-operation-in-an-array",                             "title": "XOR Operation in an Array",                             "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 1512, "slug": "number-of-good-pairs",                                  "title": "Number of Good Pairs",                                  "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 1534, "slug": "count-good-triplets",                                   "title": "Count Good Triplets",                                   "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 584,  "slug": "find-customer-referee",                                 "title": "Find Customer Referee",                                 "difficulty": "easy", "patterns": ["primers", "sql"], "importance": 1},
+  {"lc_id": 1757, "slug": "recyclable-and-low-fat-products",                       "title": "Recyclable and Low Fat Products",                       "difficulty": "easy", "patterns": ["primers", "sql"], "importance": 1},
+  {"lc_id": 709,  "slug": "to-lower-case",                                         "title": "To Lower Case",                                         "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 258,  "slug": "add-digits",                                            "title": "Add Digits",                                            "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 1281, "slug": "subtract-the-product-and-sum-of-digits-of-an-integer",  "title": "Subtract the Product and Sum of Digits of an Integer",  "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 231,  "slug": "power-of-two",                                          "title": "Power of Two",                                          "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 326,  "slug": "power-of-three",                                        "title": "Power of Three",                                        "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 263,  "slug": "ugly-number",                                           "title": "Ugly Number",                                           "difficulty": "easy", "patterns": ["primers", "math"], "importance": 1},
+  {"lc_id": 1470, "slug": "shuffle-the-array",                                     "title": "Shuffle the Array",                                     "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 867,  "slug": "transpose-matrix",                                      "title": "Transpose Matrix",                                      "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 1422, "slug": "maximum-score-after-splitting-a-string",                "title": "Maximum Score After Splitting a String",                "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 2586, "slug": "count-the-number-of-vowel-strings-in-range",            "title": "Count the Number of Vowel Strings in Range",            "difficulty": "easy", "patterns": ["primers", "arrays_hashing"], "importance": 1},
+  {"lc_id": 852,  "slug": "peak-index-in-a-mountain-array",                        "title": "Peak Index in a Mountain Array",                        "difficulty": "medium", "patterns": ["primers", "binary_search"], "importance": 1}
+]

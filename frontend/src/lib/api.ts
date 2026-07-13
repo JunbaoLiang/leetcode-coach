@@ -1,0 +1,201 @@
+// Typed API client for the FastAPI backend (proxied at /api in dev).
+
+export type Track = 'mle' | 'ai4s' | 'swe_newgrad' | 'career_switch'
+export type Level = 'junior' | 'mid' | 'senior'
+export type Platform = 'leetcode_cn' | 'leetcode_com'
+export type Outcome = 'ac_first_try' | 'ac' | 'failed' | 'abandoned'
+
+export interface Profile {
+  id: number
+  name: string
+  background: string
+  target_track: Track
+  target_level: Level
+  timeline_weeks: number | null
+  weekly_hours: number
+  preferred_lang: string
+  platform: Platform
+  include_primers: boolean
+}
+
+export interface Problem {
+  id: number
+  track: string
+  lc_id: number | null
+  slug: string
+  title: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  patterns: string[]
+  importance: number
+}
+
+export interface PlanReviewItem {
+  problem: Problem
+  url: string
+  due_date: string
+  overdue_days: number
+  review_count: number
+  mastery: string
+}
+
+export interface PlanNewItem {
+  problem: Problem
+  url: string
+  is_primer: boolean
+  is_stale_learning: boolean
+}
+
+export interface TodayPlan {
+  reviews: PlanReviewItem[]
+  new: PlanNewItem[]
+  budget_minutes: number
+  streak: number
+}
+
+export interface Attempt {
+  id: number
+  problem_id: number
+  started_at: string
+  outcome: Outcome | null
+  hint_level_max: number
+  judge_failures: number
+  duration_sec: number | null
+  mistake_tags: string[]
+}
+
+export interface ReviewState {
+  problem_id: number
+  ease_factor: number
+  interval_days: number
+  due_date: string
+  review_count: number
+  last_quality: number | null
+  mastery: string
+}
+
+export interface FinishResult {
+  attempt: Attempt
+  review: ReviewState | null
+  quality: number | null
+}
+
+export interface Stats {
+  pattern_progress: { pattern: string; solved: number; total: number }[]
+  difficulty_progress: { difficulty: string; solved: number; total: number }[]
+  streak: number
+  heatmap: Record<string, number>
+  total_solved: number
+  total_attempts: number
+  ac_first_try_rate: number | null
+  avg_hint_level_30d: number | null
+}
+
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const resp = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+  if (!resp.ok) {
+    let detail = resp.statusText
+    try {
+      const body = await resp.json()
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+    } catch {
+      /* keep statusText */
+    }
+    throw new ApiError(resp.status, detail)
+  }
+  return resp.json() as Promise<T>
+}
+
+const inflightStarts = new Map<number, Promise<Attempt>>()
+
+export const api = {
+  getProfile: () => request<Profile>('/api/profile'),
+  saveProfile: (p: Omit<Profile, 'id'>) =>
+    request<Profile>('/api/profile', { method: 'POST', body: JSON.stringify(p) }),
+  getTodayPlan: () => request<TodayPlan>('/api/plan/today'),
+  getProblem: (id: number) => request<Problem>(`/api/problems/${id}`),
+  startAttempt: (problem_id: number) => {
+    // dedupe concurrent starts (React StrictMode double-mounts effects in dev)
+    const pending = inflightStarts.get(problem_id)
+    if (pending) return pending
+    const p = request<Attempt>('/api/attempts', {
+      method: 'POST',
+      body: JSON.stringify({ problem_id }),
+    }).finally(() => inflightStarts.delete(problem_id))
+    inflightStarts.set(problem_id, p)
+    return p
+  },
+  finishAttempt: (
+    id: number,
+    body: {
+      outcome: Outcome
+      duration_sec: number
+      recall_self_report: number
+      mistake_tags: string[]
+      code_snapshot?: string
+      self_explanation?: string
+    },
+  ) => request<FinishResult>(`/api/attempts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  getStats: () => request<Stats>('/api/stats'),
+}
+
+export function problemUrl(slug: string, platform: Platform): string {
+  const host = platform === 'leetcode_cn' ? 'leetcode.cn' : 'leetcode.com'
+  return `https://${host}/problems/${slug}/`
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** Stream a hint over SSE; onDelta fires per text chunk. Resolves when done. */
+export async function streamHint(
+  body: { attempt_id: number; level: number; messages: ChatMessage[] },
+  onDelta: (text: string) => void,
+): Promise<void> {
+  const resp = await fetch('/api/hints', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!resp.ok || !resp.body) {
+    let detail = resp.statusText
+    try {
+      const parsed = await resp.json()
+      if (typeof parsed.detail === 'string') detail = parsed.detail
+    } catch {
+      /* keep statusText */
+    }
+    throw new ApiError(resp.status, detail)
+  }
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+    for (const evt of events) {
+      const line = evt.trim()
+      if (!line.startsWith('data: ')) continue
+      const payload = line.slice(6)
+      if (payload === '[DONE]') return
+      const parsed = JSON.parse(payload) as { text?: string; error?: string }
+      if (parsed.error) throw new ApiError(503, parsed.error)
+      if (parsed.text) onDelta(parsed.text)
+    }
+  }
+}

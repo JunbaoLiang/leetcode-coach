@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* ── 「教练的红笔」 · warm paper, ink text, vermilion accent ────────────── */
+
+@theme {
+  --color-paper: #f7f2e9;
+  --color-paper-deep: #efe7d8;
+  --color-card: #fdfbf6;
+  --color-ink: #221f1a;
+  --color-ink-soft: #6b645a;
+  --color-ink-faint: #a39a8c;
+  --color-line: #e2d9c8;
+  --color-vermilion: #c73e1d;
+  --color-vermilion-deep: #a33217;
+  --color-vermilion-wash: #f9e8e2;
+  --color-seal-green: #3d7a52;
+  --color-seal-green-wash: #e4efe7;
+  --color-amber-warn: #b07d10;
+  --color-amber-wash: #f7edd6;
+
+  --font-display: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  /* faint paper grain */
+  background-color: var(--color-paper);
+  background-image: radial-gradient(rgba(84, 62, 26, 0.035) 1px, transparent 0);
+  background-size: 5px 5px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* red-pen underline stroke for section titles */
+.pen-underline {
+  position: relative;
+  display: inline-block;
+}
+.pen-underline::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -6px;
+  bottom: -3px;
+  height: 3px;
+  background: var(--color-vermilion);
+  border-radius: 2px 6px 3px 5px;
+  transform: rotate(-0.4deg);
+  opacity: 0.85;
+}
+
+/* staggered page-load reveal */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.12s; }
+.rise-3 { animation-delay: 0.19s; }
+.rise-4 { animation-delay: 0.26s; }
+
+/* timer breathing while running */
+@keyframes tick-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.tick-pulse {
+  animation: tick-pulse 2s ease-in-out infinite;
+}
+
+/* streaming cursor in coach chat */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.stream-cursor::after {
+  content: "▌";
+  color: var(--color-vermilion);
+  animation: blink 0.9s step-end infinite;
+}
