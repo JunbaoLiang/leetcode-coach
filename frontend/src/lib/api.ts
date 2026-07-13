@@ -90,6 +90,38 @@ export interface Stats {
   avg_hint_level_30d: number | null
 }
 
+export interface CodeReview {
+  correctness_risks: string[]
+  complexity: { claimed: string | null; actual: string }
+  style_issues: string[]
+  optimal_comparison: string
+  mistake_tags_suggested: string[]
+}
+
+export interface TeachbackResult {
+  passed: boolean
+  gaps: string[]
+  follow_up_question: string | null
+  mastery: string | null
+}
+
+export interface Weaknesses {
+  tags: { tag: string; count: number; weighted: number; rate: number }[]
+  patterns: { pattern: string; attempts: number; error_rate: number }[]
+  weak_patterns: string[]
+}
+
+export interface Report {
+  id: number
+  period_start: string
+  period_end: string
+  content_md: string
+  metrics: Record<string, unknown>
+  created_at: string
+}
+
+export type ReportSummary = Pick<Report, 'id' | 'period_start' | 'period_end' | 'created_at'>
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -147,6 +179,25 @@ export const api = {
     },
   ) => request<FinishResult>(`/api/attempts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   getStats: () => request<Stats>('/api/stats'),
+  reviewCode: (attempt_id: number) =>
+    request<CodeReview>('/api/review-code', {
+      method: 'POST',
+      body: JSON.stringify({ attempt_id }),
+    }),
+  confirmTags: (attemptId: number, tags: string[]) =>
+    request<{ mistake_tags: string[] }>(`/api/attempts/${attemptId}/confirm-tags`, {
+      method: 'POST',
+      body: JSON.stringify({ tags }),
+    }),
+  teachback: (attempt_id: number, transcript: ChatMessage[]) =>
+    request<TeachbackResult>('/api/teachback', {
+      method: 'POST',
+      body: JSON.stringify({ attempt_id, transcript }),
+    }),
+  getWeaknesses: () => request<Weaknesses>('/api/weaknesses'),
+  generateWeeklyReport: () => request<Report>('/api/reports/weekly', { method: 'POST' }),
+  listReports: () => request<ReportSummary[]>('/api/reports'),
+  getReport: (id: number) => request<Report>(`/api/reports/${id}`),
 }
 
 export function problemUrl(slug: string, platform: Platform): string {

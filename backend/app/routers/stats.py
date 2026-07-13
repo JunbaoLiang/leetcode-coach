@@ -8,12 +8,57 @@ from app.db import get_db
 from app.models import Attempt, Problem
 from app.routers.plan import compute_streak
 from app.routers.profile import get_current_user
-from app.schemas import DifficultyProgress, PatternProgress, StatsOut
+from app.schemas import (
+    DifficultyProgress,
+    PatternProgress,
+    PatternStatOut,
+    StatsOut,
+    TagStatOut,
+    WeaknessOut,
+)
 from app.services.planner import PATTERN_ORDER
+from app.services.weakness import AttemptEvidence, aggregate_weaknesses
 
 router = APIRouter(prefix="/api")
 
 HEATMAP_WEEKS = 26
+
+
+def weakness_profile(db: Session, user_id: int, today: date):
+    finished = db.scalars(
+        select(Attempt).where(Attempt.user_id == user_id, Attempt.outcome.is_not(None))
+    )
+    return aggregate_weaknesses(
+        [
+            AttemptEvidence(
+                outcome=a.outcome,
+                mistake_tags=a.mistake_tags or [],
+                patterns=a.problem.patterns,
+                when=a.created_at.date(),
+            )
+            for a in finished
+        ],
+        today,
+    )
+
+
+@router.get("/weaknesses", response_model=WeaknessOut)
+def weaknesses(db: Session = Depends(get_db)) -> WeaknessOut:
+    user = get_current_user(db)
+    if user is None:
+        raise HTTPException(404, "no profile yet — complete onboarding first")
+    profile = weakness_profile(db, user.id, date.today())
+    return WeaknessOut(
+        tags=[
+            TagStatOut(tag=t.tag, count=t.count, weighted=round(t.weighted, 2), rate=t.rate)
+            for t in profile.tags
+        ],
+        patterns=[
+            PatternStatOut(pattern=p.pattern, attempts=p.attempts, error_rate=p.error_rate)
+            for p in profile.patterns
+        ],
+        weak_patterns=profile.weak_patterns,
+    )
 
 
 @router.get("/stats", response_model=StatsOut)

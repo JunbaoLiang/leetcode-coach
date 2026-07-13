@@ -1,7 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import attempts, hints, plan, problems, profile, stats
+from app.routers import (
+    attempts,
+    hints,
+    plan,
+    problems,
+    profile,
+    reports,
+    review,
+    stats,
+    teachback,
+)
 
 app = FastAPI(title="LeetCode Coach API")
 
@@ -13,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router_module in (profile, problems, plan, attempts, hints, stats):
+for router_module in (profile, problems, plan, attempts, hints, stats, review, teachback, reports):
     app.include_router(router_module.router)
 
 

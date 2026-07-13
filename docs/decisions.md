@@ -13,3 +13,6 @@
 - 2026-07-13 · mastery 升级规则(PLAN 未细化):q<3 → learning;否则 reviewing;teach_back_passed 且 review_count≥3 才可 mastered(M2 起生效,与 8.4 节门槛一致)。
 - 2026-07-13 · React StrictMode 双挂载会并发创建两条 in-progress attempt:客户端对 startAttempt 做 in-flight 去重 + 服务端 finish 时清理无 hint 记录的兄弟行,不加数据库唯一约束(单用户场景足够)。
 - 2026-07-13 · 界面视觉方向「教练的红笔」:暖纸底 + 墨色 + 朱砂红点缀,宋体标题,系统字体无外部依赖。
+- 2026-07-13 · 弱点档案的"错误证据"定义:outcome 为 failed/abandoned,或 AC 但勾了错误标签;近 30 天权重 1.0,更早 0.5;pattern 判定为"弱点"需加权做题数 ≥3 且错误率 ≥0.4(防止一两题定性)。
+- 2026-07-13 · teach-back 流程:首轮讲解必产生一个追问(passed=false),回答追问后才给最终判定;通过置 teach_back_passed,且 review_count≥3 时立即升 mastered。
+- 2026-07-13 · 周报叙述用非结构化 markdown(8.5 节 LLM 只叙述),指标 JSON 全部后端计算并注入 prompt;本周零做题记录时拒绝生成(422)而非产出空话周报。

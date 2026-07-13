@@ -6,10 +6,12 @@ import {
   streamHint,
   type Attempt,
   type ChatMessage,
+  type CodeReview,
   type FinishResult,
   type Outcome,
   type Problem,
   type Profile,
+  type TeachbackResult,
 } from '../lib/api'
 import { DifficultyBadge, PatternChips, ProblemTitle } from '../components/ProblemMeta'
 import { MISTAKE_TAG_LABELS, OUTCOME_LABELS, RECALL_LABELS } from '../lib/labels'
@@ -187,7 +189,12 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
 
         {/* record form / result */}
         {finished ? (
-          <ResultPanel result={result} />
+          <ResultPanel
+            result={result}
+            attemptId={attempt.id}
+            hasCode={code.trim().length > 0}
+            isPrimer={problem.patterns.includes('primers')}
+          />
         ) : formOpen ? (
           <form
             onSubmit={submitRecord}
@@ -398,7 +405,21 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
   )
 }
 
-function ResultPanel({ result }: { result: FinishResult }) {
+function masteryLabel(m: string): string {
+  return m === 'learning' ? '学习中' : m === 'reviewing' ? '复习中' : '已掌握'
+}
+
+function ResultPanel({
+  result,
+  attemptId,
+  hasCode,
+  isPrimer,
+}: {
+  result: FinishResult
+  attemptId: number
+  hasCode: boolean
+  isPrimer: boolean
+}) {
   const review = result.review
   return (
     <div className="rise mt-6 rounded-md border border-line bg-card p-5 shadow-sm">
@@ -418,15 +439,17 @@ function ResultPanel({ result }: { result: FinishResult }) {
           </div>
           <div>
             <dt className="text-xs text-ink-faint">掌握度</dt>
-            <dd className="text-xl">
-              {review.mastery === 'learning' ? '学习中' : review.mastery === 'reviewing' ? '复习中' : '已掌握'}
-            </dd>
+            <dd className="text-xl">{masteryLabel(review.mastery)}</dd>
           </div>
         </dl>
       ) : (
         <p className="mt-2 text-sm text-ink-soft">热身题不进入复习循环——AC 即通过。</p>
       )}
-      <div className="mt-4 flex gap-3">
+
+      {hasCode && <ReviewSection attemptId={attemptId} />}
+      {!isPrimer && <TeachbackSection attemptId={attemptId} />}
+
+      <div className="mt-5 flex gap-3">
         <Link
           to="/"
           className="rounded-md bg-vermilion px-4 py-2 text-sm font-medium text-white hover:bg-vermilion-deep"
@@ -437,6 +460,204 @@ function ResultPanel({ result }: { result: FinishResult }) {
           看看进度
         </Link>
       </div>
+    </div>
+  )
+}
+
+function ReviewSection({ attemptId }: { attemptId: number }) {
+  const [review, setReview] = useState<CodeReview | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [picked, setPicked] = useState<string[]>([])
+  const [confirmed, setConfirmed] = useState<string[] | null>(null)
+
+  const run = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const r = await api.reviewCode(attemptId)
+      setReview(r)
+      setPicked(r.mistake_tags_suggested)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const confirm = async () => {
+    try {
+      const r = await api.confirmTags(attemptId, picked)
+      setConfirmed(r.mistake_tags)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">代码 Review</h3>
+        {!review && (
+          <button
+            onClick={run}
+            disabled={loading}
+            className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-soft hover:border-ink-faint disabled:opacity-50"
+          >
+            {loading ? '评审中…' : '一键代码 Review'}
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-vermilion-deep">{error}</p>}
+      {review && (
+        <div className="mt-3 space-y-3 text-sm">
+          <div>
+            <span className="text-xs text-ink-faint">实际复杂度 </span>
+            <span className="font-mono">{review.complexity.actual}</span>
+          </div>
+          {review.correctness_risks.length > 0 && (
+            <div>
+              <p className="text-xs text-vermilion-deep">正确性风险</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-ink">
+                {review.correctness_risks.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {review.style_issues.length > 0 && (
+            <div>
+              <p className="text-xs text-ink-faint">风格建议</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-ink-soft">
+                {review.style_issues.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {review.optimal_comparison && (
+            <p className="text-ink-soft">{review.optimal_comparison}</p>
+          )}
+          {review.mistake_tags_suggested.length > 0 && confirmed === null && (
+            <div className="rounded-md bg-paper p-3">
+              <p className="text-xs text-ink-faint">
+                评审建议的错误标签(确认后计入弱点档案):
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {review.mistake_tags_suggested.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() =>
+                      setPicked((cur) =>
+                        cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag],
+                      )
+                    }
+                    className={`rounded-md border px-2.5 py-1 text-xs ${
+                      picked.includes(tag)
+                        ? 'border-vermilion bg-vermilion-wash font-medium'
+                        : 'border-line'
+                    }`}
+                  >
+                    {MISTAKE_TAG_LABELS[tag] ?? tag}
+                  </button>
+                ))}
+                <button
+                  onClick={confirm}
+                  className="rounded-md bg-ink px-3 py-1 text-xs text-paper hover:opacity-85"
+                >
+                  确认入库
+                </button>
+              </div>
+            </div>
+          )}
+          {confirmed !== null && (
+            <p className="text-xs text-seal-green">
+              已入库标签:{confirmed.map((t) => MISTAKE_TAG_LABELS[t] ?? t).join('、') || '无'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeachbackSection({ attemptId }: { attemptId: number }) {
+  const [transcript, setTranscript] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [verdict, setVerdict] = useState<TeachbackResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const passed = verdict?.passed === true
+  const pendingFollowUp = verdict !== null && !passed && verdict.follow_up_question
+
+  const submit = async () => {
+    if (!input.trim()) return
+    const next: ChatMessage[] = [...transcript, { role: 'user', content: input.trim() }]
+    if (verdict?.follow_up_question) {
+      next.splice(next.length - 1, 0, {
+        role: 'assistant',
+        content: verdict.follow_up_question,
+      })
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const v = await api.teachback(attemptId, next)
+      setTranscript(next)
+      setVerdict(v)
+      setInput('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <h3 className="text-sm font-medium">
+        Teach-back 关卡{' '}
+        <span className="text-xs font-normal text-ink-faint">
+          讲不明白就不算掌握——通过才能标记「已掌握」
+        </span>
+      </h3>
+      {passed ? (
+        <p className="mt-2 text-sm text-seal-green">
+          通过 ✓ 掌握度:{verdict?.mastery ? masteryLabel(verdict.mastery) : '—'}
+        </p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {verdict && verdict.gaps.length > 0 && (
+            <ul className="list-inside list-disc space-y-0.5 text-sm text-vermilion-deep">
+              {verdict.gaps.map((g, i) => (
+                <li key={i}>{g}</li>
+              ))}
+            </ul>
+          )}
+          {pendingFollowUp && (
+            <p className="rounded-md bg-paper p-3 text-sm">追问:{verdict.follow_up_question}</p>
+          )}
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              pendingFollowUp
+                ? '回答追问…'
+                : '用自己的话讲:为什么这样做?复杂度?哪个 edge case 要注意?'
+            }
+            className="h-24 w-full resize-y rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-vermilion"
+          />
+          {error && <p className="text-sm text-vermilion-deep">{error}</p>}
+          <button
+            onClick={submit}
+            disabled={loading || !input.trim()}
+            className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-soft hover:border-ink-faint disabled:opacity-50"
+          >
+            {loading ? '评审中…' : pendingFollowUp ? '提交回答' : '提交讲解'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

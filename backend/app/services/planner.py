@@ -55,11 +55,55 @@ def _pattern_index(patterns: list[str]) -> int:
     return len(PATTERN_ORDER)
 
 
+def _pick_new(
+    pool: list[NewCandidate],
+    new_count: int,
+    weak_patterns: list[str],
+    weakness_weight: float,
+) -> list[NewCandidate]:
+    """§9.4.3 — reserve ~weakness_weight of new slots for weak-pattern problems,
+    fill the rest in normal curriculum order."""
+    ordered = sorted(
+        pool,
+        key=lambda c: (
+            not c.is_stale_learning,
+            not c.is_primer,
+            _pattern_index(c.patterns),
+            DIFFICULTY_RANK.get(c.difficulty, 1),
+            -c.importance,
+            c.problem_id,
+        ),
+    )
+    if not weak_patterns:
+        return ordered[:new_count]
+
+    weak_set = set(weak_patterns)
+    weak_slots = round(new_count * weakness_weight)
+    # stale-learning and primer picks keep their priority; the bias only steers
+    # the truly-new slots
+    weak_pool = [
+        c for c in ordered
+        if set(c.patterns) & weak_set and not c.is_primer and not c.is_stale_learning
+    ]
+    picked: list[NewCandidate] = weak_pool[:weak_slots]
+    picked_ids = {c.problem_id for c in picked}
+    for c in ordered:
+        if len(picked) >= new_count:
+            break
+        if c.problem_id not in picked_ids:
+            picked.append(c)
+            picked_ids.add(c.problem_id)
+    # present in curriculum order regardless of how slots were allocated
+    return [c for c in ordered if c.problem_id in picked_ids][:new_count]
+
+
 def build_today_plan(
     weekly_hours: int,
     include_primers: bool,
     due: list[DueReview],
     candidates: list[NewCandidate],
+    weak_patterns: list[str] | None = None,
+    weakness_weight: float = 0.4,
 ) -> TodayPlan:
     budget = weekly_hours * 60 / 7
 
@@ -81,17 +125,7 @@ def build_today_plan(
         new_count = 1  # a day should never be empty
 
     pool = [c for c in candidates if include_primers or not c.is_primer]
-    pool.sort(
-        key=lambda c: (
-            not c.is_stale_learning,
-            not (c.is_primer and include_primers),
-            _pattern_index(c.patterns),
-            DIFFICULTY_RANK.get(c.difficulty, 1),
-            -c.importance,
-            c.problem_id,
-        )
-    )
-    news = pool[:new_count]
+    news = _pick_new(pool, new_count, weak_patterns or [], weakness_weight)
 
     return TodayPlan(
         review_ids=[r.problem_id for r in reviews],
