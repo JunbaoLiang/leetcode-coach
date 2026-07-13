@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import get_db
-from app.models import Attempt, Problem, Review
-from app.routers.profile import get_current_user
+from app.models import Attempt, Problem, Review, User
 from app.schemas import (
     MISTAKE_TAGS,
     AttemptFinishIn,
@@ -22,10 +22,11 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/attempts", response_model=AttemptOut)
-def start_attempt(body: AttemptStartIn, db: Session = Depends(get_db)) -> Attempt:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet")
+def start_attempt(
+    body: AttemptStartIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Attempt:
     problem = db.get(Problem, body.problem_id)
     if problem is None:
         raise HTTPException(404, "problem not found")
@@ -48,11 +49,15 @@ def start_attempt(body: AttemptStartIn, db: Session = Depends(get_db)) -> Attemp
 
 @router.patch("/attempts/{attempt_id}", response_model=AttemptFinishOut)
 def finish_attempt(
-    attempt_id: int, body: AttemptFinishIn, db: Session = Depends(get_db)
+    attempt_id: int,
+    body: AttemptFinishIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
 ) -> AttemptFinishOut:
     attempt = db.get(Attempt, attempt_id)
     if attempt is None:
         raise HTTPException(404, "attempt not found")
+    ensure_owner(attempt.user_id, user)
     if attempt.outcome is not None:
         raise HTTPException(409, "attempt already finished")
     unknown = set(body.mistake_tags) - set(MISTAKE_TAGS)

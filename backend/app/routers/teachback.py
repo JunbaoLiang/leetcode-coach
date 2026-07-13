@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import get_db
 from app.models import Attempt, Review, User
 from app.schemas import TeachbackIn, TeachbackOut, TeachbackResult
@@ -11,10 +12,15 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/teachback", response_model=TeachbackResult)
-async def teachback(body: TeachbackIn, db: Session = Depends(get_db)) -> TeachbackResult:
+async def teachback(
+    body: TeachbackIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> TeachbackResult:
     attempt = db.get(Attempt, body.attempt_id)
     if attempt is None:
         raise HTTPException(404, "attempt not found")
+    ensure_owner(attempt.user_id, current)
     if attempt.outcome is None:
         raise HTTPException(409, "attempt not finished yet")
     problem = attempt.problem

@@ -24,6 +24,10 @@ class User(Base):
     platform: Mapped[str] = mapped_column(String(20), default="leetcode_cn")
     include_primers: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # M5 — GitHub OAuth identity (null in single-user dev mode)
+    github_id: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Problem(Base):

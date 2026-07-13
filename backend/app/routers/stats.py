@@ -1,13 +1,13 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.db import get_db
-from app.models import Attempt, Problem
+from app.models import Attempt, Problem, User
 from app.routers.plan import compute_streak
-from app.routers.profile import get_current_user
 from app.schemas import (
     DifficultyProgress,
     PatternProgress,
@@ -43,10 +43,9 @@ def weakness_profile(db: Session, user_id: int, today: date):
 
 
 @router.get("/weaknesses", response_model=WeaknessOut)
-def weaknesses(db: Session = Depends(get_db)) -> WeaknessOut:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet — complete onboarding first")
+def weaknesses(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> WeaknessOut:
     profile = weakness_profile(db, user.id, date.today())
     return WeaknessOut(
         tags=[
@@ -62,10 +61,7 @@ def weaknesses(db: Session = Depends(get_db)) -> WeaknessOut:
 
 
 @router.get("/stats", response_model=StatsOut)
-def stats(db: Session = Depends(get_db)) -> StatsOut:
-    user = get_current_user(db)
-    if user is None:
-        raise HTTPException(404, "no profile yet — complete onboarding first")
+def stats(db: Session = Depends(get_db), user: User = Depends(require_user)) -> StatsOut:
     today = date.today()
 
     problems = list(db.scalars(select(Problem).where(Problem.track == "algo")))

@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import ensure_owner, require_user
 from app.db import SessionLocal, get_db
 from app.models import Attempt, HintEvent, User
 from app.schemas import HintIn
@@ -29,10 +30,15 @@ def weak_tags_for_patterns(db: Session, user: User, patterns: list[str]) -> list
 
 
 @router.post("/hints")
-def request_hint(body: HintIn, db: Session = Depends(get_db)) -> StreamingResponse:
+def request_hint(
+    body: HintIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> StreamingResponse:
     attempt = db.get(Attempt, body.attempt_id)
     if attempt is None:
         raise HTTPException(404, "attempt not found")
+    ensure_owner(attempt.user_id, current)
     if attempt.outcome is not None:
         raise HTTPException(409, "attempt already finished")
     if body.level > attempt.hint_level_max + 1:
