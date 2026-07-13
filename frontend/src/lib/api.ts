@@ -122,6 +122,54 @@ export interface Report {
 
 export type ReportSummary = Pick<Report, 'id' | 'period_start' | 'period_end' | 'created_at'>
 
+export interface MockProblem {
+  id: number
+  lc_id: number | null
+  title: string
+}
+
+export interface MockRubric {
+  communication: number
+  problem_solving: number
+  code_correctness: number
+  complexity_analysis: number
+  edge_cases: number
+  time_management: number
+}
+
+export interface MockDrill {
+  pattern: string
+  count: number
+  instruction: string
+}
+
+export interface MockSession {
+  id: number
+  problem: MockProblem
+  transcript: ChatMessage[]
+  duration_sec: number | null
+  rubric: MockRubric | null
+  verdict: string | null
+  postmortem: string | null
+  drills: MockDrill[] | null
+  created_at: string
+}
+
+export interface MockSummary {
+  id: number
+  problem: MockProblem
+  verdict: string | null
+  rubric_avg: number | null
+  created_at: string
+}
+
+export interface MockStart {
+  session_id: number
+  problem: MockProblem
+  opening: string
+  duration_sec: number
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -198,6 +246,19 @@ export const api = {
   generateWeeklyReport: () => request<Report>('/api/reports/weekly', { method: 'POST' }),
   listReports: () => request<ReportSummary[]>('/api/reports'),
   getReport: (id: number) => request<Report>(`/api/reports/${id}`),
+  listProblems: (track = 'algo') => request<Problem[]>(`/api/problems?track=${track}`),
+  startMock: (problem_id: number | null) =>
+    request<MockStart>('/api/mock/start', {
+      method: 'POST',
+      body: JSON.stringify({ problem_id }),
+    }),
+  finishMock: (session_id: number, duration_sec: number, code: string | null) =>
+    request<MockSession>('/api/mock/finish', {
+      method: 'POST',
+      body: JSON.stringify({ session_id, duration_sec, code }),
+    }),
+  listMock: () => request<MockSummary[]>('/api/mock'),
+  getMock: (id: number) => request<MockSession>(`/api/mock/${id}`),
 }
 
 export function problemUrl(slug: string, platform: Platform): string {
@@ -211,11 +272,27 @@ export interface ChatMessage {
 }
 
 /** Stream a hint over SSE; onDelta fires per text chunk. Resolves when done. */
-export async function streamHint(
+export function streamHint(
   body: { attempt_id: number; level: number; messages: ChatMessage[] },
   onDelta: (text: string) => void,
 ): Promise<void> {
-  const resp = await fetch('/api/hints', {
+  return streamSSE('/api/hints', body, onDelta)
+}
+
+/** Stream one interviewer reply in a mock session. */
+export function streamMockMessage(
+  body: { session_id: number; message: string },
+  onDelta: (text: string) => void,
+): Promise<void> {
+  return streamSSE('/api/mock/message', body, onDelta)
+}
+
+async function streamSSE(
+  path: string,
+  body: unknown,
+  onDelta: (text: string) => void,
+): Promise<void> {
+  const resp = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

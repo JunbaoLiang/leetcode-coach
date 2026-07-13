@@ -228,6 +228,89 @@ class ReportSummary(BaseModel):
     created_at: datetime
 
 
+# --- mock interview (M3, §8.2) --------------------------------------------------
+
+Verdict = Literal["strong_hire", "hire", "lean_hire", "no_hire"]
+
+MOCK_DURATION_SEC = 45 * 60
+
+
+class MockStartIn(BaseModel):
+    problem_id: int | None = None  # None -> weakness-biased random pick
+
+
+class MockProblemOut(BaseModel):
+    """Interviewer only announces number + title — no patterns (would spoil)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lc_id: int | None
+    title: str
+
+
+class MockStartOut(BaseModel):
+    session_id: int
+    problem: MockProblemOut
+    opening: str
+    duration_sec: int = MOCK_DURATION_SEC
+
+
+class MockMessageIn(BaseModel):
+    session_id: int
+    message: str = Field(min_length=1)
+
+
+class MockRubric(BaseModel):
+    communication: int = Field(ge=1, le=5)
+    problem_solving: int = Field(ge=1, le=5)
+    code_correctness: int = Field(ge=1, le=5)
+    complexity_analysis: int = Field(ge=1, le=5)
+    edge_cases: int = Field(ge=1, le=5)
+    time_management: int = Field(ge=1, le=5)
+
+
+class MockDrill(BaseModel):
+    pattern: str
+    count: int = 3
+    instruction: str
+
+
+class MockEvaluation(BaseModel):
+    """LLM output schema for /mock/finish (§8.2)."""
+
+    rubric: MockRubric
+    verdict: Verdict
+    postmortem: str
+    drills: list[MockDrill] = []
+
+
+class MockFinishIn(BaseModel):
+    session_id: int
+    duration_sec: int = Field(ge=0)
+    code: str | None = None  # final content of the plain-text code box
+
+
+class MockSessionOut(BaseModel):
+    id: int
+    problem: MockProblemOut
+    transcript: list[ChatMessage]
+    duration_sec: int | None
+    rubric: MockRubric | None
+    verdict: str | None
+    postmortem: str | None
+    drills: list[MockDrill] | None
+    created_at: datetime
+
+
+class MockSessionSummary(BaseModel):
+    id: int
+    problem: MockProblemOut
+    verdict: str | None
+    rubric_avg: float | None
+    created_at: datetime
+
+
 # --- stats ------------------------------------------------------------------
 
 

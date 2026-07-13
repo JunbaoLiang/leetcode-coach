@@ -7,6 +7,8 @@ import ProblemPage from './pages/Problem'
 import Stats from './pages/Stats'
 import WeaknessesPage from './pages/Weaknesses'
 import ReportsPage from './pages/Reports'
+import MockPage from './pages/Mock'
+import MockDetailPage from './pages/MockDetail'
 
 function Shell({ profile, children }: { profile: Profile | null; children: React.ReactNode }) {
   const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -30,6 +32,9 @@ function Shell({ profile, children }: { profile: Profile | null; children: React
               </NavLink>
               <NavLink to="/weaknesses" className={navClass}>
                 弱点档案
+              </NavLink>
+              <NavLink to="/mock" className={navClass}>
+                模拟面试
               </NavLink>
               <NavLink to="/reports" className={navClass}>
                 周报
@@ -68,6 +73,8 @@ function Gate({
       <Route path="/problem/:id" element={<ProblemPage profile={profile} />} />
       <Route path="/stats" element={<Stats />} />
       <Route path="/weaknesses" element={<WeaknessesPage />} />
+      <Route path="/mock" element={<MockPage />} />
+      <Route path="/mock/:id" element={<MockDetailPage />} />
       <Route path="/reports" element={<ReportsPage />} />
     </Routes>
   )

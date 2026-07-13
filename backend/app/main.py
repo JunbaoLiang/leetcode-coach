@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import (
     attempts,
     hints,
+    mock,
     plan,
     problems,
     profile,
@@ -23,7 +24,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router_module in (profile, problems, plan, attempts, hints, stats, review, teachback, reports):
+for router_module in (
+    profile,
+    problems,
+    plan,
+    attempts,
+    hints,
+    stats,
+    review,
+    teachback,
+    reports,
+    mock,
+):
     app.include_router(router_module.router)
 
 
