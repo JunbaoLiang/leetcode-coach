@@ -16,3 +16,6 @@
 - 2026-07-13 · 弱点档案的"错误证据"定义:outcome 为 failed/abandoned,或 AC 但勾了错误标签;近 30 天权重 1.0,更早 0.5;pattern 判定为"弱点"需加权做题数 ≥3 且错误率 ≥0.4(防止一两题定性)。
 - 2026-07-13 · teach-back 流程:首轮讲解必产生一个追问(passed=false),回答追问后才给最终判定;通过置 teach_back_passed,且 review_count≥3 时立即升 mastered。
 - 2026-07-13 · 周报叙述用非结构化 markdown(8.5 节 LLM 只叙述),指标 JSON 全部后端计算并注入 prompt;本周零做题记录时拒绝生成(422)而非产出空话周报。
+- 2026-07-13 · 面试评分 prompt 独立为 interviewer_finish.md(PLAN §4 只列了 interviewer.md):in-character 对话与出戏评估是两个人格、两套指令,同文件塞两段会互相污染;str.format 模板也不便条件拼接。
+- 2026-07-13 · mock 随机选题池:非 primers、难度 medium/hard、importance≥3,有弱点 pattern 时优先从中选;MockProblemOut 不返回 patterns 字段,防止向候选人剧透考点。
+- 2026-07-13 · mock 结束后禁止再发消息/重复评估(409):一场面试一份报告,保证历史记录的完整性。
