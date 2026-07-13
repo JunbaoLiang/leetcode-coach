@@ -141,6 +141,93 @@ class HintIn(BaseModel):
     messages: list[ChatMessage] = []
 
 
+# --- code review (M2, §8.3) ---------------------------------------------------
+
+
+class ReviewCodeIn(BaseModel):
+    attempt_id: int
+
+
+class ComplexityVerdict(BaseModel):
+    claimed: str | None = None
+    actual: str
+
+
+class ReviewCodeOut(BaseModel):
+    correctness_risks: list[str] = []
+    complexity: ComplexityVerdict
+    style_issues: list[str] = []
+    optimal_comparison: str = ""
+    mistake_tags_suggested: list[str] = []
+
+
+class ConfirmTagsIn(BaseModel):
+    tags: list[str]
+
+
+# --- teach-back (M2, §8.4) ----------------------------------------------------
+
+
+class TeachbackIn(BaseModel):
+    attempt_id: int
+    transcript: list[ChatMessage] = Field(min_length=1)
+
+
+class TeachbackOut(BaseModel):
+    passed: bool
+    gaps: list[str] = []
+    follow_up_question: str | None = None
+
+
+class TeachbackResult(TeachbackOut):
+    mastery: str | None = None  # review state after this round (None for primers)
+
+
+# --- weaknesses (M2) -----------------------------------------------------------
+
+
+class TagStatOut(BaseModel):
+    tag: str
+    count: int
+    weighted: float
+    rate: float
+
+
+class PatternStatOut(BaseModel):
+    pattern: str
+    attempts: int
+    error_rate: float
+
+
+class WeaknessOut(BaseModel):
+    tags: list[TagStatOut]
+    patterns: list[PatternStatOut]
+    weak_patterns: list[str]
+
+
+# --- reports (M2, §8.5) ---------------------------------------------------------
+
+
+class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    period_start: date
+    period_end: date
+    content_md: str
+    metrics: dict
+    created_at: datetime
+
+
+class ReportSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    period_start: date
+    period_end: date
+    created_at: datetime
+
+
 # --- stats ------------------------------------------------------------------
 
 

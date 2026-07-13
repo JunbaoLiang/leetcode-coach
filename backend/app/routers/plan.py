@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import Attempt, Problem, Review, User
 from app.routers.profile import get_current_user
@@ -98,7 +99,16 @@ def today_plan(db: Session = Depends(get_db)) -> TodayPlanOut:
                 )
             )
 
-    plan = build_today_plan(user.weekly_hours, user.include_primers, due, candidates)
+    from app.routers.stats import weakness_profile  # local import to avoid a cycle
+
+    plan = build_today_plan(
+        user.weekly_hours,
+        user.include_primers,
+        due,
+        candidates,
+        weak_patterns=weakness_profile(db, user.id, today).weak_patterns,
+        weakness_weight=settings.weakness_weight,
+    )
 
     problems = {p.id: p for p in db.scalars(select(Problem))}
     cand_by_id = {c.problem_id: c for c in candidates}

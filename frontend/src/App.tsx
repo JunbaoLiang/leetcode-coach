@@ -5,6 +5,8 @@ import Onboarding from './pages/Onboarding'
 import Today from './pages/Today'
 import ProblemPage from './pages/Problem'
 import Stats from './pages/Stats'
+import WeaknessesPage from './pages/Weaknesses'
+import ReportsPage from './pages/Reports'
 
 function Shell({ profile, children }: { profile: Profile | null; children: React.ReactNode }) {
   const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -25,6 +27,12 @@ function Shell({ profile, children }: { profile: Profile | null; children: React
               </NavLink>
               <NavLink to="/stats" className={navClass}>
                 进度看板
+              </NavLink>
+              <NavLink to="/weaknesses" className={navClass}>
+                弱点档案
+              </NavLink>
+              <NavLink to="/reports" className={navClass}>
+                周报
               </NavLink>
               <NavLink to="/onboarding" className={navClass}>
                 我的画像
@@ -59,6 +67,8 @@ function Gate({
       <Route path="/" element={<Today />} />
       <Route path="/problem/:id" element={<ProblemPage profile={profile} />} />
       <Route path="/stats" element={<Stats />} />
+      <Route path="/weaknesses" element={<WeaknessesPage />} />
+      <Route path="/reports" element={<ReportsPage />} />
     </Routes>
   )
 }
