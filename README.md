@@ -7,6 +7,9 @@
 
 开源的、AI 驱动的算法面试教练。核心主张:**AI 的作用不是帮你更快地解题,而是帮你记住更多做过的题、修复真实的弱点。**
 
+> **🔗 在线体验:<https://leetcode-coach-five.vercel.app>**(GitHub 账号登录即用)
+> 这是作者自费维护的演示实例,请轻度试用;想日常使用请按[部署指南](#部署免费档)十分钟自建实例(免费档即可,LLM 用自己的 key)。
+
 ![demo](docs/assets/demo.gif)
 
 ## 四大支柱
@@ -119,6 +122,9 @@ LLM 功能需要 `backend/.env` 中配置 `ANTHROPIC_API_KEY`(模板见 `backend
 ## English
 
 An open-source, AI-powered coach for algorithm interviews. The thesis: **AI shouldn't solve problems faster for you — it should help you retain more of what you've solved and fix your real weaknesses.**
+
+> **🔗 Live demo: <https://leetcode-coach-five.vercel.app>** (sign in with GitHub).
+> This is a lightly-funded demo instance — please be gentle; for daily use, self-host in ~10 minutes on free tiers with your own LLM key (see the deployment guide above).
 
 **Four pillars**
 
