@@ -28,3 +28,4 @@
 - 2026-07-13 · 新 OAuth 用户以 onboarded=false 创建,GET /profile 对未 onboarding 用户返回 404 驱动前端进问卷;迁移把存量本地用户直接标记 onboarded=true。
 - 2026-07-13 · 生产部署用 Vercel rewrites 做同源 /api 代理:OAuth callback 也走前端域名,会话 cookie 天然第一方,无跨域 cookie 问题;GitHub OAuth App 的 callback URL 必须填前端域名。
 - 2026-07-13 · demo GIF 用 Pillow 把三张页面截图串成轮播(本机无 ffmpeg/ImageMagick);后续可换成真实操作录屏。
+- 2026-07-13 · 增加 backend/requirements.txt(与 pyproject 依赖手动同步):Railway/Render 的构建器只对 requirements.txt 走"自动建 venv + 配 PATH"的铺装路径,自定义 `pip install .` 装出的环境运行期不可见;本地开发仍以 pyproject 为准。
