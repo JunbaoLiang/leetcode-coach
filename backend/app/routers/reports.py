@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import ensure_owner, require_user
 from app.db import get_db
 from app.models import Attempt, Report, User
-from app.routers.plan import compute_streak
+from app.routers.plan import compute_streak, utc_today
 from app.schemas import ReportOut, ReportSummary
 from app.services import llm
 from app.services.weakness import AttemptEvidence, aggregate_weaknesses
@@ -82,7 +82,7 @@ def build_week_metrics(db: Session, user_id: int, today: date) -> dict:
 async def generate_weekly_report(
     db: Session = Depends(get_db), user: User = Depends(require_user)
 ) -> Report:
-    today = date.today()
+    today = utc_today()  # attempt timestamps are UTC — week windows follow suit
     metrics = build_week_metrics(db, user.id, today)
     if metrics["this_week"]["attempts"] == 0:
         raise HTTPException(422, "本周没有任何做题记录,先刷题再来生成周报")

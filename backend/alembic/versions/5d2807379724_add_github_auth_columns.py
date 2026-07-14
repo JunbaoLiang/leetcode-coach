@@ -24,11 +24,12 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("avatar_url", sa.String(length=300), nullable=True))
     op.add_column(
         "users",
-        sa.Column("onboarded", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("onboarded", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
     op.create_index("ix_users_github_id", "users", ["github_id"], unique=True)
     # pre-existing local users finished onboarding before this column existed
-    op.execute("UPDATE users SET onboarded = 1")
+    # (TRUE literal works on both PostgreSQL and SQLite; bare 1 breaks PostgreSQL)
+    op.execute("UPDATE users SET onboarded = TRUE")
 
 
 def downgrade() -> None:

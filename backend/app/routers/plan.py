@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -21,6 +21,12 @@ def problem_url(problem: Problem, user: User) -> str:
     if problem.track == "ml":
         return ""  # ML problems live inside the coach — no external page
     return f"https://{PLATFORM_HOST[user.platform]}/problems/{problem.slug}/"
+
+
+def utc_today() -> date:
+    """Attempt timestamps are stored in UTC — streak/heatmap math must use UTC
+    days too, or evenings west of Greenwich count toward the wrong day."""
+    return datetime.now(UTC).date()
 
 
 def compute_streak(db: Session, user_id: int, today: date) -> int:
@@ -148,5 +154,5 @@ def today_plan(
             for pid in plan.new_ids
         ],
         budget_minutes=plan.budget_minutes,
-        streak=compute_streak(db, user.id, today),
+        streak=compute_streak(db, user.id, utc_today()),
     )

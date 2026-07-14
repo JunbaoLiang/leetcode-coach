@@ -31,28 +31,23 @@ function ProgressRing({ solved, total, label }: { solved: number; total: number;
   )
 }
 
-function localKey(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
-}
-
 function Heatmap({ data }: { data: Record<string, number> }) {
   const weeks = 26
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  // window of 26 weeks ending today, columns aligned to Sunday
+  // backend keys are UTC dates (attempt timestamps are stored in UTC) —
+  // build the grid in UTC too so evenings west of Greenwich land on the right cell
+  const now = new Date()
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const start = new Date(today)
-  start.setDate(today.getDate() - (weeks * 7 - 1))
-  start.setDate(start.getDate() - start.getDay())
+  start.setUTCDate(today.getUTCDate() - (weeks * 7 - 1))
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay())
   const cells: { date: string; count: number }[][] = []
   const cursor = new Date(start)
   while (cursor <= today) {
     const col: { date: string; count: number }[] = []
     for (let d = 0; d < 7 && cursor <= today; d++) {
-      const key = localKey(cursor)
+      const key = cursor.toISOString().slice(0, 10)
       col.push({ date: key, count: data[key] ?? 0 })
-      cursor.setDate(cursor.getDate() + 1)
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
     }
     cells.push(col)
   }
