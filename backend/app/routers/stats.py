@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_user
 from app.db import get_db
 from app.models import Attempt, Problem, User
-from app.routers.plan import compute_streak
+from app.routers.plan import compute_streak, utc_today
 from app.schemas import (
     DifficultyProgress,
     PatternProgress,
@@ -62,7 +62,7 @@ def weaknesses(
 
 @router.get("/stats", response_model=StatsOut)
 def stats(db: Session = Depends(get_db), user: User = Depends(require_user)) -> StatsOut:
-    today = date.today()
+    today = utc_today()  # attempt timestamps are UTC — keep day math consistent
 
     problems = list(db.scalars(select(Problem).where(Problem.track == "algo")))
     finished = list(
