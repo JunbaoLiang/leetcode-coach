@@ -81,9 +81,13 @@ def fetch_github_user(code: str) -> dict:
         timeout=15,
     )
     token_resp.raise_for_status()
-    access_token = token_resp.json().get("access_token")
+    payload = token_resp.json()
+    access_token = payload.get("access_token")
     if not access_token:
-        raise HTTPException(502, "GitHub 未返回 access_token")
+        # surface GitHub's reason: bad_verification_code = 授权码过期/已被使用(重新登录即可);
+        # incorrect_client_credentials = GITHUB_CLIENT_SECRET 配置错误
+        reason = payload.get("error", "unknown_error")
+        raise HTTPException(502, f"GitHub token exchange failed: {reason}")
     user_resp = httpx.get(
         "https://api.github.com/user",
         headers={"Authorization": f"Bearer {access_token}"},
