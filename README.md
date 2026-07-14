@@ -77,8 +77,13 @@ LLM 功能需要 `backend/.env` 中配置 `ANTHROPIC_API_KEY`(模板见 `backend
 
 **① 后端(Railway 或 Render)**
 
-- 根目录选 `backend/`,启动命令:`uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- 部署前执行 `alembic upgrade head && python -m seed.import_seed`(Railway 的 pre-deploy command / Render 的 build command 尾部)
+- 根目录(Root Directory)选 `backend/`
+- Build 命令:`pip install .`
+- 启动命令(迁移与种子导入是幂等的,直接串在启动里最省心):
+
+  ```
+  alembic upgrade head && python -m seed.import_seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  ```
 - 环境变量:
 
 | 变量 | 值 |
