@@ -78,7 +78,7 @@ LLM 功能需要 `backend/.env` 中配置 `ANTHROPIC_API_KEY`(模板见 `backend
 **① 后端(Railway 或 Render)**
 
 - 根目录(Root Directory)选 `backend/`
-- Build 命令:`pip install .`
+- Build 命令:**留空**(平台检测到 `requirements.txt` 会自动安装依赖并配好 PATH)
 - 启动命令(迁移与种子导入是幂等的,直接串在启动里最省心):
 
   ```
