@@ -34,7 +34,15 @@ def _client() -> AsyncAnthropic:
         raise LLMNotConfiguredError(
             "ANTHROPIC_API_KEY is not set — add it to backend/.env"
         )
-    return AsyncAnthropic(api_key=settings.anthropic_api_key)
+    # bump SDK retries (default 2): rides out transient 429/529 overload spikes
+    return AsyncAnthropic(api_key=settings.anthropic_api_key, max_retries=4)
+
+
+def friendly_llm_error(e: Exception) -> str:
+    text = str(e).lower()
+    if "overloaded" in text or "rate_limit" in text or "429" in text:
+        return "Claude 服务临时过载,稍等几秒再发一次(你的消息已保留)"
+    return f"LLM 调用失败: {e}"
 
 
 async def stream_completion(

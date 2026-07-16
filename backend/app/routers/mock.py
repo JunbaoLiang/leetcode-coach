@@ -134,7 +134,7 @@ def mock_message(
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             return
         except Exception as e:
-            yield f"data: {json.dumps({'error': f'LLM 调用失败: {e}'})}\n\n"
+            yield f"data: {json.dumps({'error': llm.friendly_llm_error(e)})}\n\n"
             return
         with SessionLocal() as fresh:
             mock = fresh.get(MockSession, session_id)

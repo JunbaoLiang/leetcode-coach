@@ -260,6 +260,7 @@ function Interview({
       )
     } catch (e) {
       setMessages((cur) => cur.slice(0, -2))
+      setInput(text.trim()) // don't lose what the user typed
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setStreaming(false)
@@ -318,6 +319,11 @@ function Interview({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                // IME(拼音)选词确认的回车不触发表单提交
+                if ((e.nativeEvent.isComposing || e.keyCode === 229) && e.key === 'Enter')
+                  e.preventDefault()
+              }}
               disabled={streaming || finishing}
               placeholder="口述你的思路…"
               className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-vermilion"
