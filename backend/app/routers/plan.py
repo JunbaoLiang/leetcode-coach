@@ -1,14 +1,14 @@
 from datetime import UTC, date, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.config import settings
 from app.db import get_db
-from app.models import Attempt, Problem, Review, User
-from app.schemas import PlanNewItem, PlanReviewItem, ProblemOut, TodayPlanOut
+from app.models import Attempt, DailyPlan, Problem, Review, User
+from app.schemas import PlanItemOut, ProblemOut, TodayPlanOut
 from app.services.planner import DueReview, NewCandidate, build_today_plan
 from app.services.tracks import ml_unlocked
 
@@ -44,12 +44,11 @@ def compute_streak(db: Session, user_id: int, today: date) -> int:
     return streak
 
 
-@router.get("/plan/today", response_model=TodayPlanOut)
-def today_plan(
-    db: Session = Depends(get_db), user: User = Depends(require_user)
-) -> TodayPlanOut:
-    today = date.today()
-
+def _collect_candidates(
+    db: Session, user: User, today: date, exclude: set[int] | None = None
+) -> tuple[list[DueReview], list[NewCandidate], list[NewCandidate], bool]:
+    """Due reviews + new-problem candidates (algo/ml split) for the planner."""
+    exclude = exclude or set()
     reviews = {r.problem_id: r for r in db.scalars(select(Review).where(Review.user_id == user.id))}
     due = [
         DueReview(
@@ -60,10 +59,9 @@ def today_plan(
             review_count=r.review_count,
         )
         for r in reviews.values()
-        if r.due_date <= today
+        if r.due_date <= today and r.problem_id not in exclude
     ]
 
-    # candidates: never AC'd and not yet in the review loop
     solved_ids = {
         row for row in db.scalars(
             select(Attempt.problem_id).where(
@@ -80,7 +78,7 @@ def today_plan(
             algo_total += 1
             if p.id in solved_ids:
                 algo_solved += 1
-        if p.id in solved_ids or p.id in reviews:
+        if p.id in solved_ids or p.id in reviews or p.id in exclude:
             continue
         candidate = NewCandidate(
             problem_id=p.id,
@@ -95,9 +93,9 @@ def today_plan(
             candidates.append(candidate)
 
     # mastery == learning, untouched for 3+ days -> resurface ahead of brand-new (§9.4.4)
-    stale_cutoff = datetime.now() - timedelta(days=3)
+    stale_cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=3)
     for r in reviews.values():
-        if r.mastery != "learning" or r.due_date <= today:
+        if r.mastery != "learning" or r.due_date <= today or r.problem_id in exclude:
             continue
         last_touch = db.scalar(
             select(func.max(Attempt.created_at)).where(
@@ -115,9 +113,13 @@ def today_plan(
                     is_stale_learning=True,
                 )
             )
+    return due, candidates, ml_candidates, ml_unlocked(user.target_track, algo_solved, algo_total)
 
+
+def _generate_items(db: Session, user: User, today: date) -> list[dict]:
     from app.routers.stats import weakness_profile  # local import to avoid a cycle
 
+    due, candidates, ml_candidates, unlocked = _collect_candidates(db, user, today)
     plan = build_today_plan(
         user.weekly_hours,
         user.include_primers,
@@ -127,32 +129,121 @@ def today_plan(
         weakness_weight=settings.weakness_weight,
         track=user.target_track,
         ml_candidates=ml_candidates,
-        ml_unlocked=ml_unlocked(user.target_track, algo_solved, algo_total),
+        ml_unlocked=unlocked,
+    )
+    stale_ids = {c.problem_id for c in candidates if c.is_stale_learning}
+    items = [{"problem_id": pid, "kind": "review"} for pid in plan.review_ids]
+    for pid in plan.new_ids:
+        entry = {"problem_id": pid, "kind": "new"}
+        if pid in stale_ids:
+            entry["stale"] = True
+        items.append(entry)
+    return items
+
+
+def _get_or_create_plan(db: Session, user: User, today: date) -> DailyPlan:
+    snapshot = db.scalar(
+        select(DailyPlan).where(DailyPlan.user_id == user.id, DailyPlan.plan_date == today)
+    )
+    if snapshot is None:
+        snapshot = DailyPlan(
+            user_id=user.id, plan_date=today, items=_generate_items(db, user, today)
+        )
+        db.add(snapshot)
+        db.commit()
+        db.refresh(snapshot)
+    return snapshot
+
+
+def _finished_today(db: Session, user_id: int, today: date) -> set[int]:
+    rows = db.scalars(
+        select(Attempt).where(Attempt.user_id == user_id, Attempt.outcome.is_not(None))
+    )
+    return {a.problem_id for a in rows if a.created_at.date() == today}
+
+
+def _item_out(
+    entry: dict, problems: dict[int, Problem], reviews: dict[int, Review], user: User, today: date,
+    done: bool,
+) -> PlanItemOut:
+    problem = problems[entry["problem_id"]]
+    review = reviews.get(problem.id) if entry["kind"] == "review" else None
+    return PlanItemOut(
+        problem=ProblemOut.model_validate(problem),
+        url=problem_url(problem, user),
+        kind=entry["kind"],
+        done=done,
+        stale=bool(entry.get("stale")),
+        due_date=review.due_date if review else None,
+        overdue_days=(today - review.due_date).days if review else None,
+        review_count=review.review_count if review else None,
+        mastery=review.mastery if review else None,
     )
 
+
+@router.get("/plan/today", response_model=TodayPlanOut)
+def today_plan(
+    db: Session = Depends(get_db), user: User = Depends(require_user)
+) -> TodayPlanOut:
+    today = utc_today()
+    snapshot = _get_or_create_plan(db, user, today)
+    finished = _finished_today(db, user.id, today)
+
     problems = {p.id: p for p in db.scalars(select(Problem))}
-    cand_by_id = {c.problem_id: c for c in candidates}
+    reviews = {r.problem_id: r for r in db.scalars(select(Review).where(Review.user_id == user.id))}
+
+    items = [
+        _item_out(entry, problems, reviews, user, today, entry["problem_id"] in finished)
+        for entry in snapshot.items
+        if entry["problem_id"] in problems
+    ]
+    # anything finished today outside the plan shows up as a completed bonus
+    planned_ids = {entry["problem_id"] for entry in snapshot.items}
+    for pid in sorted(finished - planned_ids):
+        if pid in problems:
+            extra = {"problem_id": pid, "kind": "bonus"}
+            items.append(_item_out(extra, problems, reviews, user, today, True))
+
+    planned = [i for i in items if i.kind != "bonus"]
     return TodayPlanOut(
-        reviews=[
-            PlanReviewItem(
-                problem=ProblemOut.model_validate(problems[pid]),
-                url=problem_url(problems[pid], user),
-                due_date=reviews[pid].due_date,
-                overdue_days=(today - reviews[pid].due_date).days,
-                review_count=reviews[pid].review_count,
-                mastery=reviews[pid].mastery,
-            )
-            for pid in plan.review_ids
-        ],
-        new=[
-            PlanNewItem(
-                problem=ProblemOut.model_validate(problems[pid]),
-                url=problem_url(problems[pid], user),
-                is_primer=cand_by_id[pid].is_primer,
-                is_stale_learning=cand_by_id[pid].is_stale_learning,
-            )
-            for pid in plan.new_ids
-        ],
-        budget_minutes=plan.budget_minutes,
-        streak=compute_streak(db, user.id, utc_today()),
+        items=items,
+        done_count=sum(1 for i in planned if i.done),
+        total_count=len(planned),
+        bonus_done=sum(1 for i in items if i.kind == "bonus" and i.done),
+        budget_minutes=round(user.weekly_hours * 60 / 7),
+        streak=compute_streak(db, user.id, today),
     )
+
+
+@router.post("/plan/bonus", response_model=PlanItemOut)
+def add_bonus(db: Session = Depends(get_db), user: User = Depends(require_user)) -> PlanItemOut:
+    """加餐 — hand out one more problem beyond today's plan (weakness-biased)."""
+    from app.routers.stats import weakness_profile
+
+    today = utc_today()
+    snapshot = _get_or_create_plan(db, user, today)
+    planned_ids = {entry["problem_id"] for entry in snapshot.items}
+
+    _, candidates, ml_candidates, unlocked = _collect_candidates(
+        db, user, today, exclude=planned_ids
+    )
+    plan = build_today_plan(
+        user.weekly_hours,
+        user.include_primers,
+        [],
+        candidates,
+        weak_patterns=weakness_profile(db, user.id, today).weak_patterns,
+        weakness_weight=settings.weakness_weight,
+        track=user.target_track,
+        ml_candidates=ml_candidates,
+        ml_unlocked=unlocked,
+    )
+    if not plan.new_ids:
+        raise HTTPException(404, "题库里没有可加餐的题了——你也太能刷了")
+    pid = plan.new_ids[0]
+
+    snapshot.items = [*snapshot.items, {"problem_id": pid, "kind": "bonus"}]
+    db.commit()
+
+    problems = {p.id: p for p in db.scalars(select(Problem).where(Problem.id == pid))}
+    return _item_out({"problem_id": pid, "kind": "bonus"}, problems, {}, user, today, False)

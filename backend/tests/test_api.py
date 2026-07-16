@@ -48,11 +48,12 @@ def test_full_practice_flow(client, db_factory) -> None:
 
     # plan: pattern order puts two-sum before 3sum; primer excluded (include_primers=False)
     plan = client.get("/api/plan/today").json()
-    assert plan["reviews"] == []
-    new_ids = [item["problem"]["id"] for item in plan["new"]]
-    assert new_ids[0] == 1
-    assert 3 not in new_ids
-    assert plan["new"][0]["url"] == "https://leetcode.cn/problems/two-sum/"
+    item_ids = [item["problem"]["id"] for item in plan["items"]]
+    assert item_ids[0] == 1
+    assert 3 not in item_ids
+    assert plan["items"][0]["kind"] == "new"
+    assert plan["items"][0]["url"] == "https://leetcode.cn/problems/two-sum/"
+    assert plan["done_count"] == 0
 
     # start + reload reuses the same in-progress attempt
     a1 = client.post("/api/attempts", json={"problem_id": 1}).json()
@@ -76,9 +77,14 @@ def test_full_practice_flow(client, db_factory) -> None:
     assert body["review"]["review_count"] == 1
     assert date.fromisoformat(body["review"]["due_date"]) > date.today()
 
-    # solved problem no longer offered as new
+    # the checklist is frozen: the solved problem STAYS on it, checked off
     plan2 = client.get("/api/plan/today").json()
-    assert 1 not in [item["problem"]["id"] for item in plan2["new"]]
+    solved_item = next(i for i in plan2["items"] if i["problem"]["id"] == 1)
+    assert solved_item["done"] is True
+    assert plan2["done_count"] == 1
+    assert [i["problem"]["id"] for i in plan2["items"]] == [
+        i["problem"]["id"] for i in plan["items"]
+    ]  # same list as this morning
 
     # stats aggregate
     stats = client.get("/api/stats").json()
@@ -94,7 +100,7 @@ def test_primer_skips_review_scheduling(client, db_factory) -> None:
     seed_problems(db_factory)
 
     plan = client.get("/api/plan/today").json()
-    assert [item["problem"]["id"] for item in plan["new"]][0] == 3  # primer first
+    assert [item["problem"]["id"] for item in plan["items"]][0] == 3  # primer first
 
     att = client.post("/api/attempts", json={"problem_id": 3}).json()
     body = client.patch(

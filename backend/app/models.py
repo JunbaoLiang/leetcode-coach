@@ -1,6 +1,17 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -95,6 +106,21 @@ class Review(Base):
     teach_back_passed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     problem: Mapped[Problem] = relationship()
+
+
+class DailyPlan(Base):
+    """One frozen checklist per (user, UTC day) — regenerating on every request
+    made the list refill itself and hid all progress (dogfooding feedback)."""
+
+    __tablename__ = "daily_plans"
+    __table_args__ = (UniqueConstraint("user_id", "plan_date", name="uq_daily_plan_user_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    plan_date: Mapped[date] = mapped_column(Date)
+    # [{"problem_id": int, "kind": "review"|"new"|"bonus", "stale": bool?}, ...]
+    items: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class MockSession(Base):

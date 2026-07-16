@@ -33,25 +33,23 @@ export interface Problem {
   test_spec?: Record<string, unknown> | null
 }
 
-export interface PlanReviewItem {
+export interface PlanItem {
   problem: Problem
   url: string
-  due_date: string
-  overdue_days: number
-  review_count: number
-  mastery: string
-}
-
-export interface PlanNewItem {
-  problem: Problem
-  url: string
-  is_primer: boolean
-  is_stale_learning: boolean
+  kind: 'review' | 'new' | 'bonus'
+  done: boolean
+  stale: boolean
+  due_date: string | null
+  overdue_days: number | null
+  review_count: number | null
+  mastery: string | null
 }
 
 export interface TodayPlan {
-  reviews: PlanReviewItem[]
-  new: PlanNewItem[]
+  items: PlanItem[]
+  done_count: number
+  total_count: number
+  bonus_done: number
   budget_minutes: number
   streak: number
 }
@@ -207,6 +205,7 @@ export const api = {
   saveProfile: (p: Omit<Profile, 'id'>) =>
     request<Profile>('/api/profile', { method: 'POST', body: JSON.stringify(p) }),
   getTodayPlan: () => request<TodayPlan>('/api/plan/today'),
+  addBonusProblem: () => request<PlanItem>('/api/plan/bonus', { method: 'POST' }),
   getProblem: (id: number) => request<Problem>(`/api/problems/${id}`),
   startAttempt: (problem_id: number) => {
     // dedupe concurrent starts (React StrictMode double-mounts effects in dev)
