@@ -22,7 +22,11 @@ connect_args = {"check_same_thread": False} if database_url.startswith("sqlite")
 if database_url.startswith("sqlite:///"):
     # SQLite won't create missing parent directories (data/ is gitignored on fresh clones)
     Path(database_url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-engine = create_engine(database_url, connect_args=connect_args)
+# pool_pre_ping revives connections severed by Neon's autosuspend (free tier
+# sleeps after ~5 min idle); recycle keeps pooled connections younger than that
+engine = create_engine(
+    database_url, connect_args=connect_args, pool_pre_ping=True, pool_recycle=300
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

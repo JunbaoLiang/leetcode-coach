@@ -119,19 +119,47 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [authRequired, setAuthRequired] = useState(false)
+  const [fatal, setFatal] = useState(false)
 
   useEffect(() => {
-    api
-      .getProfile()
-      .then(setProfile)
-      .catch((e: unknown) => {
+    const load = async (retried: boolean) => {
+      try {
+        setProfile(await api.getProfile())
+      } catch (e) {
         if (e instanceof ApiError && e.status === 401) setAuthRequired(true)
-        else if (!(e instanceof ApiError && e.status === 404)) console.error(e)
-      })
-      .finally(() => setLoading(false))
+        else if (e instanceof ApiError && e.status === 404) {
+          /* genuinely no profile -> Gate routes to onboarding */
+        } else if (!retried) {
+          // transient backend/DB hiccup (e.g. Neon waking from autosuspend) — retry once
+          await new Promise((r) => setTimeout(r, 2500))
+          return load(true)
+        } else {
+          console.error(e)
+          setFatal(true) // never mistake an outage for "no profile"
+          return
+        }
+      }
+      setLoading(false)
+    }
+    load(false)
   }, [])
 
   if (authRequired) return <Login />
+  if (fatal)
+    return (
+      <div className="mx-auto mt-24 max-w-sm text-center">
+        <h1 className="font-display text-2xl font-semibold">连接不上后端</h1>
+        <p className="mt-3 text-sm text-ink-soft">
+          可能是服务正在唤醒,你的数据都还在。稍等几秒再试。
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-6 rounded-md bg-vermilion px-5 py-2 text-sm font-medium text-white hover:bg-vermilion-deep"
+        >
+          重试
+        </button>
+      </div>
+    )
 
   return (
     <BrowserRouter>
