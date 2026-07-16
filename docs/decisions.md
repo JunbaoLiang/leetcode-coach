@@ -31,3 +31,4 @@
 - 2026-07-13 · 增加 backend/requirements.txt(与 pyproject 依赖手动同步):Railway/Render 的构建器只对 requirements.txt 走"自动建 venv + 配 PATH"的铺装路径,自定义 `pip install .` 装出的环境运行期不可见;本地开发仍以 pyproject 为准。
 - 2026-07-14 · 迁移脚本里的裸 SQL 必须写跨方言的字面量:`onboarded = TRUE` 而非 `= 1`(SQLite 宽容、PostgreSQL 强类型,首次上 Neon 时炸出)。教训:迁移要在两种方言上都验证。
 - 2026-07-14 · streak/热力图/周报窗口统一以 **UTC 日**为口径(created_at 本就是 UTC):美东晚间本地日期落后 UTC 一天,混用会算错 streak;复习 due_date 保持本地日期(用户面向的调度语义)。
+- 2026-07-15 · Neon 免费档闲置 ~5 分钟自动休眠会掐断连接池里的连接:engine 开 `pool_pre_ping=True` + `pool_recycle=300`;同时前端 profile 加载遇到非 401/404 错误改为"重试一次→报错页",不再静默当成"无画像"送去 onboarding(该缺陷曾让瞬时 500 被误读为数据丢失)。
