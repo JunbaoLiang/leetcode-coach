@@ -79,7 +79,7 @@ def request_hint(
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             return
         except Exception as e:  # surface a readable error instead of a dead socket
-            yield f"data: {json.dumps({'error': f'LLM 调用失败: {e}'})}\n\n"
+            yield f"data: {json.dumps({'error': llm.friendly_llm_error(e)})}\n\n"
             return
         # persist the hint event only after a successful full stream
         with SessionLocal() as session:

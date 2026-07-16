@@ -110,6 +110,7 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
         setHintLevel((lv) => Math.max(lv, level))
       } catch (e) {
         setMessages((cur) => cur.slice(0, userText ? -2 : -1))
+        if (userText) setChatInput(userText) // don't lose what the user typed
         setChatError(e instanceof Error ? e.message : String(e))
       } finally {
         setStreaming(false)
@@ -411,6 +412,8 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => {
+                    // IME(拼音)选词确认的回车不算发送 — keyCode 229 兜底老版 Safari
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       e.currentTarget.form?.requestSubmit()
