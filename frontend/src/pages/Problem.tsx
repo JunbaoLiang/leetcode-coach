@@ -153,8 +153,15 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
   const finished = result !== null
   const isMl = problem.track === 'ml'
 
+  // algo problems while working: narrow info card left, roomy chat right;
+  // the record form / result panel swaps the emphasis back. ML keeps the wide editor.
+  const gridClass =
+    isMl || formOpen || finished
+      ? 'lg:grid-cols-[1fr_minmax(320px,420px)]'
+      : 'lg:grid-cols-[minmax(280px,340px)_1fr]'
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_minmax(320px,420px)]">
+    <div className={`grid gap-8 ${gridClass}`}>
       {/* ── left: problem meta + timer + record ── */}
       <div>
         <div className="rise flex flex-wrap items-center gap-2">
@@ -357,9 +364,11 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {messages.length === 0 && (
             <p className="mt-8 text-center text-sm text-ink-faint">
-              还没有提示。
+              先自己想一想。
               <br />
-              先自己想一想,需要时逐级请求。
+              有思路了可以贴伪代码来讨论(计 L1),
+              <br />
+              完全没头绪就点下面的按钮要提示。
             </p>
           )}
           {messages.map((m, i) => (
@@ -388,32 +397,45 @@ export default function ProblemPage({ profile }: { profile: Profile | null }) {
             <p className="text-center text-xs text-ink-faint">本次做题已记录,提示窗已关闭。</p>
           ) : (
             <>
-              {hintLevel >= 1 && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    if (!chatInput.trim()) return
-                    sendToCoach(hintLevel, chatInput.trim())
-                    setChatInput('')
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!chatInput.trim()) return
+                  // free chat at L0 transparently enters the hint ladder at L1
+                  sendToCoach(Math.max(hintLevel, 1), chatInput.trim())
+                  setChatInput('')
+                }}
+                className="mb-2 flex items-end gap-2"
+              >
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      e.currentTarget.form?.requestSubmit()
+                    }
                   }}
-                  className="mb-2 flex gap-2"
+                  disabled={streaming}
+                  rows={chatInput.includes('\n') ? 5 : 2}
+                  placeholder={
+                    hintLevel === 0
+                      ? '贴上你的思路 / 伪代码来讨论(首次对话计为 L1)…'
+                      : `在 L${hintLevel} 内继续讨论,可贴代码…`
+                  }
+                  className="min-w-0 flex-1 resize-none rounded-md border border-line bg-paper px-3 py-2 font-mono text-sm leading-relaxed outline-none focus:border-vermilion"
+                />
+                <button
+                  type="submit"
+                  disabled={streaming || !chatInput.trim()}
+                  className="rounded-md border border-line px-3 py-2 text-sm text-ink-soft hover:border-ink-faint disabled:opacity-40"
                 >
-                  <input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    disabled={streaming}
-                    placeholder={`在 L${hintLevel} 内继续追问…`}
-                    className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-vermilion"
-                  />
-                  <button
-                    type="submit"
-                    disabled={streaming || !chatInput.trim()}
-                    className="rounded-md border border-line px-3 py-2 text-sm text-ink-soft hover:border-ink-faint disabled:opacity-40"
-                  >
-                    发送
-                  </button>
-                </form>
-              )}
+                  发送
+                </button>
+              </form>
+              <p className="mb-2 text-center text-[11px] text-ink-faint">
+                Enter 发送 · Shift+Enter 换行
+              </p>
               {hintLevel < 4 && (
                 <button
                   onClick={() => sendToCoach(hintLevel + 1, null)}
