@@ -63,26 +63,27 @@ class ProblemDetail(ProblemOut):
 
 # --- plan -------------------------------------------------------------------
 
+PlanKind = Literal["review", "new", "bonus"]
 
-class PlanReviewItem(BaseModel):
+
+class PlanItemOut(BaseModel):
     problem: ProblemOut
     url: str
-    due_date: date
-    overdue_days: int
-    review_count: int
-    mastery: str
-
-
-class PlanNewItem(BaseModel):
-    problem: ProblemOut
-    url: str
-    is_primer: bool
-    is_stale_learning: bool
+    kind: PlanKind
+    done: bool
+    stale: bool = False  # mastery 'learning', untouched 3+ days
+    # review-only metadata
+    due_date: date | None = None
+    overdue_days: int | None = None
+    review_count: int | None = None
+    mastery: str | None = None
 
 
 class TodayPlanOut(BaseModel):
-    reviews: list[PlanReviewItem]
-    new: list[PlanNewItem]
+    items: list[PlanItemOut]  # frozen for the day; bonus items appended at the end
+    done_count: int  # completed among review+new (bonus excluded)
+    total_count: int  # review+new count
+    bonus_done: int
     budget_minutes: int
     streak: int
 
